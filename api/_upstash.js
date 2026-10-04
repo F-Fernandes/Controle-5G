@@ -19,7 +19,7 @@ export async function upstashGet(chave) {
   });
   if (!res.ok) throw new Error(`Upstash GET falhou: ${res.status}`);
   const json = await res.json();
-  return json.result ?? null; // string salva, ou null se não existir
+  return json.result ?? null;
 }
 
 export async function upstashSet(chave, valorTexto) {

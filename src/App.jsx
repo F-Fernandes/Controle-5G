@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import * as XLSX from "xlsx";
 import {
   ResponsiveContainer,
@@ -74,7 +74,6 @@ const TABS = [
   { id: "metaMes", label: "Meta Mês" },
   { id: "lancamento", label: "Lançamento" },
   { id: "consulta", label: "Consulta" },
-  { id: "pareto", label: "Pareto Construção" },
   { id: "comparativo", label: "Comparativo" },
 ];
 
@@ -169,33 +168,45 @@ function countBy(rows, keyFn) {
   return Object.entries(cont).map(([label, qtd]) => ({ label, qtd })).sort((a, b) => b.qtd - a.qtd);
 }
 
+// Índices de coluna (0 = A, 1 = B, ...) — usamos posição fixa em vez do nome do
+// cabeçalho porque a planilha tem duas colunas chamadas "IDENTIFICDOR" (D e F),
+// o que causaria uma sobrescrever a outra se lêssemos por nome.
+const COL = {
+  cid: 0, anel: 1, site: 2, ident: 3, mod: 6, ano: 7, cp: 8, cr: 9, sc: 10,
+  compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, gab: 30, sdca: 36,
+  qrm: 38, lanc: 40, meta: 41, etapa: 43,
+};
+
 function parseWorkbookToRows(workbook) {
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const json = XLSX.utils.sheet_to_json(sheet, { defval: null, raw: true });
+  const linhas = XLSX.utils.sheet_to_json(sheet, { header: 1, raw: true, defval: null });
   const rows = [];
-  json.forEach((r) => {
-    const site = r["SITE"];
-    const cidade = r["CIDADE"];
+  linhas.slice(1).forEach((l) => {
+    const site = l[COL.site];
+    const cidade = l[COL.cid];
     if (!site && !cidade) return;
     rows.push({
       site: cleanTxt(site, ""),
       cid: cleanTxt(cidade, "Não informado"),
-      ano: cleanAno(r["ANO IMPLANTAÇÃO"]),
-      epo: cleanTxt(r["EPO - RESPONSÁVEL"], "Não informado"),
-      cp: excelDateToStr(r["const. Plan"]),
-      cr: excelDateToStr(r["Construção Real"]),
-      sc: r["STATUS CONSTRUÇÂO"] || null,
-      ep: excelDateToStr(r["Entroncado Plan"]),
-      er: excelDateToStr(r["Entroncado Real"]),
-      se: r["Status Entroncamento"] || null,
-      lanc: cleanNum(r["Total - Lançamento"]),
-      qrm: cleanTxt(r["QRM"], "Não informado"),
-      gab: cleanTxt(r["GABINETE"], "Não informado"),
-      mod: cleanTxt(r["MODELO INFRA"], "Não informado"),
-      etapa: cleanTxt(r["DIN-ETAPA_LIBER"], "Não informado"),
-      ofE: cleanTxt(r["OFENSOR ENTRONAMENTO"], ""),
-      meta: cleanTxt(r["META"], ""),
-      sdca: cleanTxt(r["SDCA"], "Não informado"),
+      anel: cleanTxt(l[COL.anel], "Não informado"),
+      ident: cleanTxt(l[COL.ident], ""),
+      ano: cleanAno(l[COL.ano]),
+      epo: cleanTxt(l[COL.epo], "Não informado"),
+      cp: excelDateToStr(l[COL.cp]),
+      cr: excelDateToStr(l[COL.cr]),
+      sc: l[COL.sc] || null,
+      compConstr: cleanTxt(l[COL.compConstr], ""),
+      ep: excelDateToStr(l[COL.ep]),
+      er: excelDateToStr(l[COL.er]),
+      se: l[COL.se] || null,
+      lanc: cleanNum(l[COL.lanc]),
+      qrm: cleanTxt(l[COL.qrm], "Não informado"),
+      gab: cleanTxt(l[COL.gab], "Não informado"),
+      mod: cleanTxt(l[COL.mod], "Não informado"),
+      etapa: cleanTxt(l[COL.etapa], "Não informado"),
+      ofE: cleanTxt(l[COL.ofE], ""),
+      meta: cleanTxt(l[COL.meta], ""),
+      sdca: cleanTxt(l[COL.sdca], "Não informado"),
     });
   });
   return rows;
@@ -364,31 +375,27 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
   const gabinetes = useMemo(() => opts("gab"), [opts]);
   const sdcas = useMemo(() => opts("sdca"), [opts]);
 
-  const anoPadrao = anos.includes("2026") ? "2026" : anos[0] || "Todos";
-  const [f, setF] = useState({ ano: anoPadrao, epo: "Todos", qrm: "Todos", cid: "Todos", sc: "Todos", etapa: "Todos", gab: "Todos", sdca: "Todos" });
-
-  useEffect(() => {
-    if (!anos.includes(f.ano) && f.ano !== "Todos") setF((old) => ({ ...old, ano: anoPadrao }));
-  }, [anos]); // eslint-disable-line
+  const anoPadrao = anos.includes("2026") ? ["2026"] : [];
+  const [f, setF] = useState({ ano: anoPadrao, epo: [], qrm: [], cid: [], sc: [], etapa: [], gab: [], sdca: [] });
 
   const aplicarFiltro = useCallback((lista) => lista.filter((r) =>
-    (f.ano === "Todos" || r.ano === f.ano) &&
-    (f.epo === "Todos" || r.epo === f.epo) &&
-    (f.qrm === "Todos" || r.qrm === f.qrm) &&
-    (f.cid === "Todos" || r.cid === f.cid) &&
-    (f.sc === "Todos" || r.sc === f.sc) &&
-    (f.etapa === "Todos" || r.etapa === f.etapa) &&
-    (f.gab === "Todos" || r.gab === f.gab) &&
-    (f.sdca === "Todos" || r.sdca === f.sdca)
+    (f.ano.length === 0 || f.ano.includes(r.ano)) &&
+    (f.epo.length === 0 || f.epo.includes(r.epo)) &&
+    (f.qrm.length === 0 || f.qrm.includes(r.qrm)) &&
+    (f.cid.length === 0 || f.cid.includes(r.cid)) &&
+    (f.sc.length === 0 || f.sc.includes(r.sc)) &&
+    (f.etapa.length === 0 || f.etapa.includes(r.etapa)) &&
+    (f.gab.length === 0 || f.gab.includes(r.gab)) &&
+    (f.sdca.length === 0 || f.sdca.includes(r.sdca))
   ), [f]);
 
   const dadosF = useMemo(() => aplicarFiltro(dados), [dados, aplicarFiltro]);
   const dadosAnteriorF = useMemo(() => (dadosAnterior ? aplicarFiltro(dadosAnterior) : null), [dadosAnterior, aplicarFiltro]);
 
   const hojeStr = new Date().toISOString().slice(0, 10);
-  const anoFiltroNum = f.ano === "Todos" ? null : parseInt(f.ano, 10);
+  const anosFiltro = f.ano.length ? f.ano.map((a) => parseInt(a, 10)) : null;
 
-  const ctx = { dadosF, hojeStr, anoFiltroNum, epos, sessao, dadosAnteriorF, atualizadoEmAtual, atualizadoEmAnterior };
+  const ctx = { dadosF, hojeStr, anosFiltro, epos, sessao, dadosAnteriorF, atualizadoEmAtual, atualizadoEmAnterior };
 
   return (
     <div style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", background: BG, color: TEXT, minHeight: "100%" }}>
@@ -442,9 +449,9 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         )}
 
         <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
-          <FiltroSelect label="Ano de implantação" value={f.ano} onChange={(v) => setF({ ...f, ano: v })} options={["Todos", ...anos]} />
-          <FiltroSelect label="EPO" value={f.epo} onChange={(v) => setF({ ...f, epo: v })} options={["Todos", ...epos]} />
-          <FiltroSelect label="Status Construção" value={f.sc} onChange={(v) => setF({ ...f, sc: v })} options={["Todos", ...statusList]} />
+          <FiltroMultiSelect label="Ano de implantação" selected={f.ano} onChange={(v) => setF({ ...f, ano: v })} options={anos} />
+          <FiltroMultiSelect label="EPO" selected={f.epo} onChange={(v) => setF({ ...f, epo: v })} options={epos} />
+          <FiltroMultiSelect label="Status Construção" selected={f.sc} onChange={(v) => setF({ ...f, sc: v })} options={statusList} />
           <button onClick={() => setMaisFiltros(!maisFiltros)} className="btn-hover" style={{ ...botaoSecundario, alignSelf: "flex-end" }}>
             {maisFiltros ? "− Menos filtros" : "+ Mais filtros"}
           </button>
@@ -456,11 +463,11 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         </div>
         {maisFiltros && (
           <div className="fade-in" style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
-            <FiltroSelect label="QRM" value={f.qrm} onChange={(v) => setF({ ...f, qrm: v })} options={["Todos", ...qrms]} />
-            <FiltroSelect label="Cidade" value={f.cid} onChange={(v) => setF({ ...f, cid: v })} options={["Todos", ...cidades]} />
-            <FiltroSelect label="Etapa" value={f.etapa} onChange={(v) => setF({ ...f, etapa: v })} options={["Todos", ...etapas]} />
-            <FiltroSelect label="Gabinete" value={f.gab} onChange={(v) => setF({ ...f, gab: v })} options={["Todos", ...gabinetes]} />
-            <FiltroSelect label="SDCA" value={f.sdca} onChange={(v) => setF({ ...f, sdca: v })} options={["Todos", ...sdcas]} />
+            <FiltroMultiSelect label="QRM" selected={f.qrm} onChange={(v) => setF({ ...f, qrm: v })} options={qrms} />
+            <FiltroMultiSelect label="Cidade" selected={f.cid} onChange={(v) => setF({ ...f, cid: v })} options={cidades} />
+            <FiltroMultiSelect label="Etapa" selected={f.etapa} onChange={(v) => setF({ ...f, etapa: v })} options={etapas} />
+            <FiltroMultiSelect label="Gabinete" selected={f.gab} onChange={(v) => setF({ ...f, gab: v })} options={gabinetes} />
+            <FiltroMultiSelect label="SDCA" selected={f.sdca} onChange={(v) => setF({ ...f, sdca: v })} options={sdcas} />
           </div>
         )}
 
@@ -472,7 +479,6 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         {aba === "metaMes" && <AbaMetaMes {...ctx} />}
         {aba === "lancamento" && <AbaLancamento {...ctx} />}
         {aba === "consulta" && <AbaConsulta {...ctx} />}
-        {aba === "pareto" && <AbaPareto {...ctx} />}
         {aba === "comparativo" && <AbaComparativo {...ctx} />}
 
         <footer style={{ marginTop: 20, fontSize: 11, color: TEXT_FAINT }}>
@@ -626,6 +632,54 @@ function FiltroSelect({ label, value, onChange, options, renderLabel }) {
   );
 }
 
+function FiltroMultiSelect({ label, selected, onChange, options }) {
+  const [aberto, setAberto] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function aoClicarFora(e) {
+      if (ref.current && !ref.current.contains(e.target)) setAberto(false);
+    }
+    document.addEventListener("mousedown", aoClicarFora);
+    return () => document.removeEventListener("mousedown", aoClicarFora);
+  }, []);
+
+  function alternar(v) {
+    if (selected.includes(v)) onChange(selected.filter((x) => x !== v));
+    else onChange([...selected, v]);
+  }
+
+  const resumo = selected.length === 0 ? "Todos" : selected.length === 1 ? selected[0] : `${selected.length} selecionados`;
+
+  return (
+    <div ref={ref} style={{ position: "relative", display: "flex", flexDirection: "column", gap: 4, fontSize: 12, color: TEXT_MUTED }}>
+      {label}
+      <button
+        type="button"
+        onClick={() => setAberto(!aberto)}
+        className="btn-hover"
+        style={{ padding: "7px 10px", borderRadius: 7, border: `1px solid ${BORDER}`, background: SURFACE_2, fontSize: 13, color: TEXT, minWidth: 150, maxWidth: 200, textAlign: "left", cursor: "pointer" }}
+      >
+        {resumo}
+      </button>
+      {aberto && (
+        <div style={{ position: "absolute", top: "100%", left: 0, marginTop: 4, background: SURFACE_2, border: `1px solid ${BORDER}`, borderRadius: 8, padding: 8, zIndex: 30, minWidth: 210, maxHeight: 240, overflow: "auto", boxShadow: "0 12px 28px rgba(0,0,0,0.45)" }}>
+          <div style={{ display: "flex", gap: 6, marginBottom: 8 }}>
+            <button type="button" onClick={() => onChange([])} className="btn-hover" style={{ ...botaoSecundario, padding: "3px 8px", fontSize: 11 }}>Todos</button>
+            <button type="button" onClick={() => onChange(options)} className="btn-hover" style={{ ...botaoSecundario, padding: "3px 8px", fontSize: 11 }}>Marcar tudo</button>
+          </div>
+          {options.map((o) => (
+            <label key={o} style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: TEXT, padding: "3px 2px", cursor: "pointer" }}>
+              <input type="checkbox" checked={selected.includes(o)} onChange={() => alternar(o)} />
+              {o}
+            </label>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function KpiCard({ label, value, sub, cor }) {
   return (
     <div className="card-hover" style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderRadius: 10, padding: "16px 18px", borderTop: cor ? `3px solid ${cor}` : `3px solid transparent` }}>
@@ -667,14 +721,14 @@ function RankingBar({ data, coresMap, height = 220, width = 130 }) {
   );
 }
 
-function Tabela({ colunas, linhas }) {
+function Tabela({ colunas, linhas, largo }) {
   return (
-    <div style={{ maxHeight: 280, overflow: "auto", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
-      <table className="tbl">
-        <thead><tr>{colunas.map((c) => <th key={c.key}>{c.label}</th>)}</tr></thead>
+    <div style={{ maxHeight: 320, overflow: "auto", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+      <table className="tbl" style={largo ? { width: "max-content", minWidth: "100%" } : undefined}>
+        <thead><tr>{colunas.map((c) => <th key={c.key} style={largo ? { whiteSpace: "nowrap" } : undefined}>{c.label}</th>)}</tr></thead>
         <tbody>
           {linhas.map((r, i) => (
-            <tr key={i}>{colunas.map((c) => <td key={c.key}>{r[c.key] ?? "—"}</td>)}</tr>
+            <tr key={i}>{colunas.map((c) => <td key={c.key} style={largo ? { whiteSpace: "nowrap" } : undefined}>{r[c.key] ?? "—"}</td>)}</tr>
           ))}
           {linhas.length === 0 && <tr><td colSpan={colunas.length} style={{ color: TEXT_FAINT, textAlign: "center", padding: 16 }}>Nenhum registro no filtro atual.</td></tr>}
         </tbody>
@@ -726,7 +780,7 @@ function useMemoLike(rows, keyFn) {
 
 /* ---------------- Aba: Construção/Entroncamento · Ano ---------------- */
 
-function AbaAno({ dadosF, anoFiltroNum, epos, tipo }) {
+function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
   const planKey = tipo === "construcao" ? "cp" : "ep";
   const realStatusKey = tipo === "construcao" ? "sc" : "se";
   const realStatusOk = tipo === "construcao" ? "CONSTRUÍDO" : "ENTRONCADO";
@@ -737,13 +791,13 @@ function AbaAno({ dadosF, anoFiltroNum, epos, tipo }) {
     const meses = MESES.map((label) => ({ mes: label, Plan: 0, Real: 0 }));
     dadosF.forEach((r) => {
       const pi = monthIndex(r[planKey]);
-      if (pi !== null && (anoFiltroNum === null || yearOf(r[planKey]) === anoFiltroNum)) {
+      if (pi !== null && (anosFiltro === null || anosFiltro.includes(yearOf(r[planKey])))) {
         meses[pi].Plan += 1;
         if (r[realStatusKey] === realStatusOk) meses[pi].Real += 1;
       }
     });
     return meses;
-  }, [dadosF, anoFiltroNum]); // eslint-disable-line
+  }, [dadosF, anosFiltro]); // eslint-disable-line
 
   const totalNoAno = serie.reduce((a, m) => a + m.Plan, 0);
   const realNoAno = serie.reduce((a, m) => a + m.Real, 0);
@@ -788,15 +842,21 @@ function AbaAno({ dadosF, anoFiltroNum, epos, tipo }) {
 
 /* ---------------- Aba: Construção/Entroncamento · Mês (mês atual) ---------------- */
 
-function AbaMes({ dadosF, hojeStr, anoFiltroNum, tipo }) {
+function AbaMes({ dadosF, hojeStr, anosFiltro, tipo }) {
   const planKey = tipo === "construcao" ? "cp" : "ep";
   const statusKey = tipo === "construcao" ? "sc" : "se";
   const statusOk = tipo === "construcao" ? "CONSTRUÍDO" : "ENTRONCADO";
-  const anoRef = anoFiltroNum !== null ? anoFiltroNum : parseInt(hojeStr.slice(0, 4), 10);
+  const anoAtualSistema = parseInt(hojeStr.slice(0, 4), 10);
+  const anosDisponiveis = anosFiltro && anosFiltro.length ? anosFiltro : [anoAtualSistema];
+  const [anoSel, setAnoSel] = useState(anosDisponiveis[0]);
   const mesAtualSistema = parseInt(hojeStr.slice(5, 7), 10) - 1;
   const [mesSel, setMesSel] = useState(mesAtualSistema);
 
-  const doMes = dadosF.filter((r) => yearOf(r[planKey]) === anoRef && monthIndex(r[planKey]) === mesSel);
+  useEffect(() => {
+    if (!anosDisponiveis.includes(anoSel)) setAnoSel(anosDisponiveis[0]);
+  }, [anosFiltro]); // eslint-disable-line
+
+  const doMes = dadosF.filter((r) => yearOf(r[planKey]) === anoSel && monthIndex(r[planKey]) === mesSel);
   const concluidos = doMes.filter((r) => r[statusKey] === statusOk).length;
   const pendentes = doMes.length - concluidos;
 
@@ -806,9 +866,10 @@ function AbaMes({ dadosF, hojeStr, anoFiltroNum, tipo }) {
   return (
     <div>
       <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 18, flexWrap: "wrap" }}>
+        <FiltroSelect label="Ano de referência" value={String(anoSel)} onChange={(v) => setAnoSel(parseInt(v, 10))} options={anosDisponiveis.map((a) => String(a))} />
         <FiltroSelect label="Mês de referência" value={String(mesSel)} onChange={(v) => setMesSel(parseInt(v, 10))} options={MESES.map((m, i) => String(i))} renderLabel={(v) => MESES[parseInt(v, 10)]} />
         <div style={{ fontSize: 12, color: TEXT_MUTED }}>
-          Exibindo <b style={{ color: TEXT }}>{MESES[mesSel]}/{anoRef}</b> · Ano do filtro superior: {anoFiltroNum === null ? "Todos (usando ano atual)" : anoFiltroNum}
+          Exibindo <b style={{ color: TEXT }}>{MESES[mesSel]}/{anoSel}</b>
         </div>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: 12, marginBottom: 18 }}>
@@ -828,7 +889,7 @@ function AbaMes({ dadosF, hojeStr, anoFiltroNum, tipo }) {
 
 /* ---------------- Aba: Lançamento ---------------- */
 
-function AbaLancamento({ dadosF, anoFiltroNum }) {
+function AbaLancamento({ dadosF, anosFiltro }) {
   const eposPresentes = useMemo(() => {
     const s = new Set(dadosF.map((r) => r.epo));
     const arr = Array.from(s).filter((e) => e !== "Não informado").sort();
@@ -845,11 +906,11 @@ function AbaLancamento({ dadosF, anoFiltroNum }) {
     dadosF.forEach((r) => {
       const mi = monthIndex(r.cp);
       if (mi === null) return;
-      if (anoFiltroNum !== null && yearOf(r.cp) !== anoFiltroNum) return;
+      if (anosFiltro !== null && !anosFiltro.includes(yearOf(r.cp))) return;
       meses[mi][r.epo] = (meses[mi][r.epo] || 0) + (r.lanc || 0);
     });
     return meses;
-  }, [dadosF, eposPresentes, anoFiltroNum]);
+  }, [dadosF, eposPresentes, anosFiltro]);
 
   const totalGeral = serie.reduce((acc, m) => acc + eposPresentes.reduce((a, e) => a + (m[e] || 0), 0), 0);
 
@@ -949,7 +1010,7 @@ function AbaConsulta({ dadosF }) {
         <div key={r.site} style={{ background: SURFACE_2, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{r.site} <span style={{ color: TEXT_FAINT, fontWeight: 400, fontSize: 12 }}>· {r.cid}</span></div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, fontSize: 12.5 }}>
-            <Campo2 label="Ano implantação" v={r.ano} /><Campo2 label="EPO" v={r.epo} /><Campo2 label="QRM" v={r.qrm} />
+            <Campo2 label="Anel FO" v={r.anel} /><Campo2 label="Ano implantação" v={r.ano} /><Campo2 label="EPO" v={r.epo} /><Campo2 label="QRM" v={r.qrm} />
             <Campo2 label="Modelo infra" v={r.mod} /><Campo2 label="Etapa" v={r.etapa} /><Campo2 label="Gabinete" v={r.gab} />
             <Campo2 label="Construção Plan" v={formatDateBR(r.cp)} /><Campo2 label="Construção Real" v={formatDateBR(r.cr)} /><Campo2 label="Status Construção" v={r.sc} />
             <Campo2 label="Entroncado Plan" v={formatDateBR(r.ep)} /><Campo2 label="Entroncado Real" v={formatDateBR(r.er)} /><Campo2 label="Status Entroncamento" v={r.se} />
