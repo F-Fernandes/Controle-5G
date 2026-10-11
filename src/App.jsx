@@ -113,6 +113,7 @@ const CSV_CAMPOS = [
   { key: "ofE", label: "Ofensor Entroncamento" },
   { key: "meta", label: "Meta" },
   { key: "sdca", label: "SDCA" },
+  { key: "capex", label: "Projeto CAPEX" },
 ];
 
 function exportarCSV(rows) {
@@ -173,7 +174,7 @@ function countBy(rows, keyFn) {
 // o que causaria uma sobrescrever a outra se lêssemos por nome.
 const COL = {
   cid: 0, anel: 1, site: 2, ident: 3, mod: 6, ano: 7, cp: 8, cr: 9, sc: 10,
-  compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, gab: 30, sdca: 36,
+  compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, capex: 23, gab: 30, sdca: 36,
   qrm: 38, lanc: 40, meta: 41, etapa: 43,
 };
 
@@ -207,6 +208,7 @@ function parseWorkbookToRows(workbook) {
       ofE: cleanTxt(l[COL.ofE], ""),
       meta: cleanTxt(l[COL.meta], ""),
       sdca: cleanTxt(l[COL.sdca], "Não informado"),
+      capex: cleanTxt(l[COL.capex], "Não informado"),
     });
   });
   return rows;
@@ -374,9 +376,10 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
   const etapas = useMemo(() => opts("etapa"), [opts]);
   const gabinetes = useMemo(() => opts("gab"), [opts]);
   const sdcas = useMemo(() => opts("sdca"), [opts]);
+  const capexList = useMemo(() => opts("capex"), [opts]);
 
   const anoPadrao = anos.includes("2026") ? ["2026"] : [];
-  const [f, setF] = useState({ ano: anoPadrao, epo: [], qrm: [], cid: [], sc: [], etapa: [], gab: [], sdca: [] });
+  const [f, setF] = useState({ ano: anoPadrao, epo: [], qrm: [], cid: [], sc: [], etapa: [], gab: [], sdca: [], capex: [] });
 
   const aplicarFiltro = useCallback((lista) => lista.filter((r) =>
     (f.ano.length === 0 || f.ano.includes(r.ano)) &&
@@ -386,7 +389,8 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
     (f.sc.length === 0 || f.sc.includes(r.sc)) &&
     (f.etapa.length === 0 || f.etapa.includes(r.etapa)) &&
     (f.gab.length === 0 || f.gab.includes(r.gab)) &&
-    (f.sdca.length === 0 || f.sdca.includes(r.sdca))
+    (f.sdca.length === 0 || f.sdca.includes(r.sdca)) &&
+    (f.capex.length === 0 || f.capex.includes(r.capex))
   ), [f]);
 
   const dadosF = useMemo(() => aplicarFiltro(dados), [dados, aplicarFiltro]);
@@ -468,6 +472,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
             <FiltroMultiSelect label="Etapa" selected={f.etapa} onChange={(v) => setF({ ...f, etapa: v })} options={etapas} />
             <FiltroMultiSelect label="Gabinete" selected={f.gab} onChange={(v) => setF({ ...f, gab: v })} options={gabinetes} />
             <FiltroMultiSelect label="SDCA" selected={f.sdca} onChange={(v) => setF({ ...f, sdca: v })} options={sdcas} />
+            <FiltroMultiSelect label="Projeto CAPEX" selected={f.capex} onChange={(v) => setF({ ...f, capex: v })} options={capexList} />
           </div>
         )}
 
@@ -1010,7 +1015,7 @@ function AbaConsulta({ dadosF }) {
         <div key={r.site} style={{ background: SURFACE_2, border: `1px solid ${BORDER}`, borderRadius: 10, padding: 16, marginBottom: 12 }}>
           <div style={{ fontSize: 15, fontWeight: 700, marginBottom: 10 }}>{r.site} <span style={{ color: TEXT_FAINT, fontWeight: 400, fontSize: 12 }}>· {r.cid}</span></div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10, fontSize: 12.5 }}>
-            <Campo2 label="Anel FO" v={r.anel} /><Campo2 label="Ano implantação" v={r.ano} /><Campo2 label="EPO" v={r.epo} /><Campo2 label="QRM" v={r.qrm} />
+            <Campo2 label="Anel FO" v={r.anel} /><Campo2 label="Projeto CAPEX" v={r.capex} /><Campo2 label="Ano implantação" v={r.ano} /><Campo2 label="EPO" v={r.epo} /><Campo2 label="QRM" v={r.qrm} />
             <Campo2 label="Modelo infra" v={r.mod} /><Campo2 label="Etapa" v={r.etapa} /><Campo2 label="Gabinete" v={r.gab} />
             <Campo2 label="Construção Plan" v={formatDateBR(r.cp)} /><Campo2 label="Construção Real" v={formatDateBR(r.cr)} /><Campo2 label="Status Construção" v={r.sc} />
             <Campo2 label="Entroncado Plan" v={formatDateBR(r.ep)} /><Campo2 label="Entroncado Real" v={formatDateBR(r.er)} /><Campo2 label="Status Entroncamento" v={r.se} />
