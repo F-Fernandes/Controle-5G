@@ -114,6 +114,8 @@ const CSV_CAMPOS = [
   { key: "meta", label: "Meta" },
   { key: "sdca", label: "SDCA" },
   { key: "capex", label: "Projeto CAPEX" },
+  { key: "compConstr", label: "Complemento Construcao" },
+  { key: "obs", label: "Obs" },
 ];
 
 function exportarCSV(rows) {
@@ -174,7 +176,7 @@ function countBy(rows, keyFn) {
 // o que causaria uma sobrescrever a outra se lêssemos por nome.
 const COL = {
   cid: 0, anel: 1, site: 2, ident: 3, mod: 6, ano: 7, cp: 8, cr: 9, sc: 10,
-  compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, capex: 23, gab: 30, sdca: 36,
+  compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, capex: 23, obs: 24, gab: 30, sdca: 36,
   qrm: 38, lanc: 40, meta: 41, etapa: 43,
 };
 
@@ -196,7 +198,7 @@ function parseWorkbookToRows(workbook) {
       cp: excelDateToStr(l[COL.cp]),
       cr: excelDateToStr(l[COL.cr]),
       sc: l[COL.sc] || null,
-      compConstr: cleanTxt(l[COL.compConstr], ""),
+      compConstr: cleanTxt(l[COL.compConstr], "Não informado"),
       ep: excelDateToStr(l[COL.ep]),
       er: excelDateToStr(l[COL.er]),
       se: l[COL.se] || null,
@@ -209,6 +211,7 @@ function parseWorkbookToRows(workbook) {
       meta: cleanTxt(l[COL.meta], ""),
       sdca: cleanTxt(l[COL.sdca], "Não informado"),
       capex: cleanTxt(l[COL.capex], "Não informado"),
+      obs: cleanTxt(l[COL.obs], ""),
     });
   });
   return rows;
@@ -363,7 +366,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
 
   const opts = useCallback((key) => {
     const s = new Set(dados.map((r) => r[key]));
-    const arr = Array.from(s).filter((v) => v !== "Não informado").sort();
+    const arr = Array.from(s).filter((v) => v && v !== "Não informado").sort();
     arr.push(...Array.from(s).filter((v) => v === "Não informado"));
     return arr;
   }, [dados]);
@@ -377,9 +380,11 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
   const gabinetes = useMemo(() => opts("gab"), [opts]);
   const sdcas = useMemo(() => opts("sdca"), [opts]);
   const capexList = useMemo(() => opts("capex"), [opts]);
+  const statusEntrList = useMemo(() => opts("se"), [opts]);
+  const compList = useMemo(() => opts("compConstr"), [opts]);
 
   const anoPadrao = anos.includes("2026") ? ["2026"] : [];
-  const [f, setF] = useState({ ano: anoPadrao, epo: [], qrm: [], cid: [], sc: [], etapa: [], gab: [], sdca: [], capex: [] });
+  const [f, setF] = useState({ ano: anoPadrao, epo: [], qrm: [], cid: [], sc: [], etapa: [], gab: [], sdca: [], capex: [], se: [], comp: [] });
 
   const aplicarFiltro = useCallback((lista) => lista.filter((r) =>
     (f.ano.length === 0 || f.ano.includes(r.ano)) &&
@@ -390,7 +395,9 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
     (f.etapa.length === 0 || f.etapa.includes(r.etapa)) &&
     (f.gab.length === 0 || f.gab.includes(r.gab)) &&
     (f.sdca.length === 0 || f.sdca.includes(r.sdca)) &&
-    (f.capex.length === 0 || f.capex.includes(r.capex))
+    (f.capex.length === 0 || f.capex.includes(r.capex)) &&
+    (f.se.length === 0 || f.se.includes(r.se)) &&
+    (f.comp.length === 0 || f.comp.includes(r.compConstr))
   ), [f]);
 
   const dadosF = useMemo(() => aplicarFiltro(dados), [dados, aplicarFiltro]);
@@ -456,6 +463,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
           <FiltroMultiSelect label="Ano de implantação" selected={f.ano} onChange={(v) => setF({ ...f, ano: v })} options={anos} />
           <FiltroMultiSelect label="EPO" selected={f.epo} onChange={(v) => setF({ ...f, epo: v })} options={epos} />
           <FiltroMultiSelect label="Status Construção" selected={f.sc} onChange={(v) => setF({ ...f, sc: v })} options={statusList} />
+          <FiltroMultiSelect label="Status Entroncamento" selected={f.se} onChange={(v) => setF({ ...f, se: v })} options={statusEntrList} />
           <button onClick={() => setMaisFiltros(!maisFiltros)} className="btn-hover" style={{ ...botaoSecundario, alignSelf: "flex-end" }}>
             {maisFiltros ? "− Menos filtros" : "+ Mais filtros"}
           </button>
@@ -473,6 +481,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
             <FiltroMultiSelect label="Gabinete" selected={f.gab} onChange={(v) => setF({ ...f, gab: v })} options={gabinetes} />
             <FiltroMultiSelect label="SDCA" selected={f.sdca} onChange={(v) => setF({ ...f, sdca: v })} options={sdcas} />
             <FiltroMultiSelect label="Projeto CAPEX" selected={f.capex} onChange={(v) => setF({ ...f, capex: v })} options={capexList} />
+            <FiltroMultiSelect label="Complemento Construção" selected={f.comp} onChange={(v) => setF({ ...f, comp: v })} options={compList} />
           </div>
         )}
 
@@ -1019,7 +1028,7 @@ function AbaConsulta({ dadosF }) {
             <Campo2 label="Modelo infra" v={r.mod} /><Campo2 label="Etapa" v={r.etapa} /><Campo2 label="Gabinete" v={r.gab} />
             <Campo2 label="Construção Plan" v={formatDateBR(r.cp)} /><Campo2 label="Construção Real" v={formatDateBR(r.cr)} /><Campo2 label="Status Construção" v={r.sc} />
             <Campo2 label="Entroncado Plan" v={formatDateBR(r.ep)} /><Campo2 label="Entroncado Real" v={formatDateBR(r.er)} /><Campo2 label="Status Entroncamento" v={r.se} />
-            <Campo2 label="Meta" v={r.meta} /><Campo2 label="Total Lançamento" v={r.lanc} /><Campo2 label="Ofensor Entroncamento" v={r.ofE} />
+            <Campo2 label="Complemento Construção" v={r.compConstr} /><Campo2 label="Obs" v={r.obs} /><Campo2 label="Meta" v={r.meta} /><Campo2 label="Total Lançamento" v={r.lanc} /><Campo2 label="Ofensor Entroncamento" v={r.ofE} />
           </div>
         </div>
       ))}
