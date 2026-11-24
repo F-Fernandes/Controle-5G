@@ -71,7 +71,6 @@ const TABS = [
   { id: "entroncamentoAno", label: "Entroncamento · Ano" },
   { id: "construcaoMes", label: "Construção · Mês" },
   { id: "entroncamentoMes", label: "Entroncamento · Mês" },
-  { id: "metaMes", label: "Meta Mês" },
   { id: "lancamento", label: "Lançamento" },
   { id: "analises", label: "Análises" },
   { id: "consulta", label: "Consulta" },
@@ -682,7 +681,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
           <div className="fade-in" style={{ background: SURFACE, border: `1px solid ${BORDER}`, borderLeft: `3px solid ${GREEN}`, borderRadius: 8, padding: "10px 14px", fontSize: 13, marginBottom: 18, color: TEXT }}>{mensagem}</div>
         )}
 
-        <div style={{ display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
+        <div style={{ position: "relative", zIndex: 41, display: "flex", gap: 12, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
           <FiltroMultiSelect label="Ano de implantação" selected={f.ano} onChange={(v) => setF({ ...f, ano: v })} options={anos} />
           <FiltroMultiSelect label="EPO" selected={f.epo} onChange={(v) => setF({ ...f, epo: v })} options={epos} />
           <FiltroMultiSelect label="Status Construção" selected={f.sc} onChange={(v) => setF({ ...f, sc: v })} options={statusList} />
@@ -697,7 +696,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
           <div style={{ marginLeft: "auto", fontSize: 12, color: TEXT_MUTED, alignSelf: "flex-end" }}>{dadosF.length} sites no filtro · {origem}</div>
         </div>
         {maisFiltros && (
-          <div className="fade-in" style={{ display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
+          <div className="fade-in" style={{ position: "relative", zIndex: 40, display: "flex", gap: 12, marginBottom: 20, flexWrap: "wrap", alignItems: "center" }}>
             <FiltroMultiSelect label="QRM" selected={f.qrm} onChange={(v) => setF({ ...f, qrm: v })} options={qrms} />
             <FiltroMultiSelect label="Cidade" selected={f.cid} onChange={(v) => setF({ ...f, cid: v })} options={cidades} />
             <FiltroMultiSelect label="Etapa" selected={f.etapa} onChange={(v) => setF({ ...f, etapa: v })} options={etapas} />
@@ -714,7 +713,6 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         {aba === "entroncamentoAno" && <AbaAno {...ctx} tipo="entroncamento" />}
         {aba === "construcaoMes" && <AbaMes {...ctx} tipo="construcao" />}
         {aba === "entroncamentoMes" && <AbaMes {...ctx} tipo="entroncamento" />}
-        {aba === "metaMes" && <AbaMetaMes {...ctx} />}
         {aba === "lancamento" && <AbaLancamento {...ctx} />}
         {aba === "analises" && <AbaAnalises {...ctx} />}
         {aba === "consulta" && <AbaConsulta {...ctx} />}
@@ -1050,6 +1048,8 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
   const realStatusOk = tipo === "construcao" ? "CONSTRUÍDO" : "ENTRONCADO";
   const coresStatus = tipo === "construcao" ? STATUS_CONST_CORES : STATUS_ENTR_CORES;
   const tituloReal = tipo === "construcao" ? "Construído" : "Entroncado";
+  const [selCol, setSelCol] = useState(null);
+  function alternarCol(i, tipoCol) { setSelCol((x) => (x && x.mes === i && x.tipo === tipoCol ? null : { mes: i, tipo: tipoCol })); }
 
   const serie = useMemo(() => {
     const meses = MESES.map((label) => ({ mes: label, Plan: 0, Real: 0 }));
@@ -1068,7 +1068,14 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
   const statusRanking = useMemoLike(dadosF, (r) => r[realStatusKey] || "Sem status");
   const epoRanking = useMemoLike(dadosF, (r) => r.epo);
   const totalComPlan = dadosF.filter((r) => r[planKey]).length;
-  const tabela = dadosF.filter((r) => r[planKey]).slice(0, 100);
+  const baseTabela = selCol
+    ? dadosF.filter((r) => {
+        const pi = monthIndex(r[planKey]);
+        return pi === selCol.mes && (anosFiltro === null || anosFiltro.includes(yearOf(r[planKey]))) && (selCol.tipo === "Plan" || r[realStatusKey] === realStatusOk);
+      })
+    : dadosF.filter((r) => r[planKey]);
+  const tabela = baseTabela.slice(0, 100);
+  const destaque = (i, t) => (selCol ? (selCol.mes === i && selCol.tipo === t ? 1 : 0.22) : 1);
 
   return (
     <div>
@@ -1076,7 +1083,7 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
         <KpiCard label="Sites no ano (Plan)" value={totalNoAno} />
         <KpiCard label={tituloReal} value={realNoAno} sub={pct(realNoAno, totalNoAno) + " do planejado"} cor={GREEN} />
       </div>
-      <PainelGrafico titulo={`${tipo === "construcao" ? "Construção" : "Entroncamento"} — Plan x Real por mês`} subtitulo="Plan = planejado para o mês · Real = já concluído hoje, independente de quando">
+      <PainelGrafico titulo={`${tipo === "construcao" ? "Construção" : "Entroncamento"} — Plan x Real por mês`} subtitulo="Plan = planejado para o mês · Real = já concluído hoje, independente de quando · clique em uma coluna para ver só os sites dela no detalhe">
         <ResponsiveContainer width="100%" height={270}>
           <ComposedChart data={serie} margin={{ left: -10 }}>
             <CartesianGrid stroke={BORDER} vertical={false} />
@@ -1084,11 +1091,13 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
             <YAxis tick={{ fontSize: 12, fill: TEXT_MUTED }} axisLine={false} tickLine={false} allowDecimals={false} />
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: TEXT }} />
             <Legend wrapperStyle={{ fontSize: 12, color: TEXT_MUTED }} />
-            <Bar dataKey="Plan" fill={volV(PLAN_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26}>
+            <Bar dataKey="Plan" fill={volV(PLAN_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26} cursor="pointer" onClick={(d, i) => alternarCol(i, "Plan")}>
               <LabelList dataKey="Plan" position="top" fill={TEXT_MUTED} fontSize={11} />
+              {serie.map((m, i) => <Cell key={i} fill={volV(PLAN_COLOR)} fillOpacity={destaque(i, "Plan")} stroke={selCol && selCol.mes === i && selCol.tipo === "Plan" ? "#fff" : "none"} strokeWidth={2} />)}
             </Bar>
-            <Bar dataKey="Real" fill={volV(REAL_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26}>
+            <Bar dataKey="Real" fill={volV(REAL_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26} cursor="pointer" onClick={(d, i) => alternarCol(i, "Real")}>
               <LabelList dataKey="Real" position="top" fill={TEXT_MUTED} fontSize={11} />
+              {serie.map((m, i) => <Cell key={i} fill={volV(REAL_COLOR)} fillOpacity={destaque(i, "Real")} stroke={selCol && selCol.mes === i && selCol.tipo === "Real" ? "#fff" : "none"} strokeWidth={2} />)}
             </Bar>
           </ComposedChart>
         </ResponsiveContainer>
@@ -1097,7 +1106,12 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
         <PainelGrafico titulo="Status" subtitulo="Distribuição no filtro atual"><RankingBar data={statusRanking} coresMap={coresStatus} /></PainelGrafico>
         <PainelGrafico titulo="Ranking por EPO" subtitulo="Total no filtro atual"><RankingBar data={epoRanking} coresMap={EPO_CORES} /></PainelGrafico>
       </div>
-      <PainelGrafico titulo="Detalhe de sites" subtitulo={`De acordo com os filtros aplicados acima · mostrando até 100 de ${totalComPlan}`}>
+      <PainelGrafico titulo="Detalhe de sites" subtitulo={selCol ? `Coluna selecionada: ${selCol.tipo} · ${MESES[selCol.mes]} · ${baseTabela.length} site(s)${baseTabela.length > 100 ? " (mostrando 100)" : ""}` : `De acordo com os filtros aplicados acima · mostrando até 100 de ${totalComPlan}`}>
+        {selCol && (
+          <div style={{ marginBottom: 10 }}>
+            <button className="btn-hover" style={botaoSecundario} onClick={() => setSelCol(null)}>Limpar seleção da coluna</button>
+          </div>
+        )}
         <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "etapa", label: "Etapa" }, { key: realStatusKey, label: "Status" }]} linhas={tabela} />
       </PainelGrafico>
     </div>
@@ -1205,48 +1219,6 @@ function AbaLancamento({ dadosF, anosFiltro }) {
   );
 }
 
-/* ---------------- Aba: Meta Mês ---------------- */
-
-function AbaMetaMes({ dadosF }) {
-  const grupos = useMemo(() => {
-    const cont = {};
-    dadosF.forEach((r) => {
-      if (!r.meta) return;
-      if (!cont[r.meta]) cont[r.meta] = { meta: r.meta, total: 0, concluido: 0 };
-      cont[r.meta].total += 1;
-      if (r.sc === "CONSTRUÍDO") cont[r.meta].concluido += 1;
-    });
-    return Object.values(cont).sort((a, b) => a.meta.localeCompare(b.meta));
-  }, [dadosF]);
-
-  const semMeta = dadosF.filter((r) => !r.meta).length;
-
-  return (
-    <div>
-      <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
-        Agrupamento pelo campo "META" da planilha (lote de referência, ex.: 26M01 = 2026 / mês 01). {semMeta} sites no filtro não têm meta atribuída.
-      </div>
-      <PainelGrafico titulo="Sites por lote de meta" subtitulo="Total planejado x já construído, por lote">
-        <ResponsiveContainer width="100%" height={Math.max(220, grupos.length * 26)}>
-          <BarChart data={grupos} layout="vertical" margin={{ left: 20, right: 24 }}>
-            <CartesianGrid stroke={BORDER} horizontal={false} />
-            <XAxis type="number" tick={{ fontSize: 12, fill: TEXT_MUTED }} axisLine={false} tickLine={false} allowDecimals={false} />
-            <YAxis type="category" dataKey="meta" tick={{ fontSize: 11, fill: TEXT_MUTED }} axisLine={false} tickLine={false} width={60} />
-            <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: TEXT }} />
-            <Legend wrapperStyle={{ fontSize: 12, color: TEXT_MUTED }} />
-            <Bar dataKey="total" name="Total" fill={volH(PLAN_COLOR)} maxBarSize={14} radius={[0, 3, 3, 0]}>
-              <LabelList dataKey="total" position="right" fill={TEXT} fontSize={11} />
-            </Bar>
-            <Bar dataKey="concluido" name="Construído" fill={volH(REAL_COLOR)} maxBarSize={14} radius={[0, 3, 3, 0]}>
-              <LabelList dataKey="concluido" position="right" fill={TEXT} fontSize={11} />
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </PainelGrafico>
-    </div>
-  );
-}
-
 /* ---------------- Aba: Consulta ---------------- */
 
 function AbaConsulta({ dadosF }) {
@@ -1313,15 +1285,13 @@ function latDeY(y, z) {
   return (180 / Math.PI) * Math.atan(Math.sinh(n));
 }
 const BASES = {
-  ruas: { nome: "Ruas", attr: "© OpenStreetMap · © CARTO", url: (z, x, y) => `https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/rastertiles/voyager/${z}/${x}/${y}@2x.png` },
   satelite: { nome: "Satélite", attr: "Imagens © Esri, Maxar, Earthstar Geographics", url: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${z}/${y}/${x}`, ref: (z, x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/${z}/${y}/${x}` },
-  escuro: { nome: "Escuro", attr: "© OpenStreetMap · © CARTO", url: (z, x, y) => `https://${"abcd"[(x + y) % 4]}.basemaps.cartocdn.com/dark_all/${z}/${x}/${y}@2x.png` },
 };
 const suave = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
 function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
   const [modo, setModo] = useState(modoInicial || "sc");
-  const [base, setBase] = useState("ruas");
+  const base = "satelite";
   const [mostrarSusp, setMostrarSusp] = useState(false);
   const [vista, setVista] = useState({ lat: -23.55, lon: -46.63, z: 8 });
   const [tam, setTam] = useState({ w: 0, h: 580 });
@@ -1636,12 +1606,6 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
               {Object.entries(CORES_MAPA).map(([k, v]) => <option key={k} value={k}>{v.titulo}</option>)}
             </select>
           </div>
-          <div>
-            <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 4 }}>Tipo de mapa</div>
-            <select value={base} onChange={(e) => setBase(e.target.value)} style={{ ...inputStyle, width: 130 }}>
-              {Object.entries(BASES).map(([k, v]) => <option key={k} value={k}>{v.nome}</option>)}
-            </select>
-          </div>
           <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: TEXT_MUTED, cursor: "pointer", paddingBottom: 9 }}>
             <input type="checkbox" checked={mostrarSusp} onChange={(e) => setMostrarSusp(e.target.checked)} /> Incluir coordenadas suspeitas
           </label>
@@ -1780,6 +1744,7 @@ function AbaAnalises({ dadosF, hojeStr }) {
       (r.se === "PENDENTE" || r.sc !== "CONSTRUÍDO") &&
       String(r.etapa || "").toUpperCase().trim() === "OT" &&
       metasJanela.includes(String(r.meta || "").toUpperCase().trim()));
+    const naoConstruidos = dadosF.filter((r) => r.sc !== "CONSTRUÍDO" && r.sc !== "CANCELADO" && r.se !== "CANCELADO" && (gabN(r) === "GABINETE OK" || semInfo(r)));
     const dias = (d) => Math.floor((new Date(hojeStr) - new Date(d)) / 86400000);
     const porData = (campo) => (a, b) => (a[campo] || "9999").localeCompare(b[campo] || "9999") || a.site.localeCompare(b.site);
     return {
@@ -1787,6 +1752,7 @@ function AbaAnalises({ dadosF, hojeStr }) {
       oport: { orig: [...oport].sort(porData("gabData")), semInfo },
       vencidas: { orig: [...vencidas].sort((a, b) => a.gabData.localeCompare(b.gabData)), dias },
       meta: { orig: [...meta].sort((a, b) => String(a.meta).localeCompare(String(b.meta)) || a.site.localeCompare(b.site)) },
+      naoConstruidos: { orig: [...naoConstruidos].sort((a, b) => String(a.sc).localeCompare(String(b.sc)) || (a.cp || "9999").localeCompare(b.cp || "9999") || a.site.localeCompare(b.site)) },
     };
   }, [dadosF, mesAtual, inicioMes, hojeStr]); // eslint-disable-line
 
@@ -1810,6 +1776,11 @@ function AbaAnalises({ dadosF, hojeStr }) {
       titulo: "OT com meta próxima", cor: BLUE,
       regra: `Etapa OT com meta em ${metasJanela.join(" ou ")} · entroncamento pendente ou construção diferente de construído (sem cancelados). Candidatos a remanejar data.`,
       colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "meta", label: "Meta" }, { key: "etapa", label: "Etapa" }, { key: "sc", label: "Status construção" }, { key: "se", label: "Status entroncamento" }, { key: "cpD", label: "Constr. Plan" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }],
+    },
+    naoConstruidos: {
+      titulo: "Não construídos com gabinete liberado", cor: PURPLE,
+      regra: "Construção diferente de construído (sem cancelados) · gabinete OK ou SEM INFO. Casos para priorizar a construção.",
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "sc", label: "Status construção" }, { key: "gab", label: "Gabinete" }, { key: "compConstr", label: "Complemento construção" }, { key: "cpD", label: "Constr. Plan" }, { key: "epD", label: "Entr. Plan" }, { key: "se", label: "Status entroncamento" }],
     },
   };
 
