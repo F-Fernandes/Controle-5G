@@ -73,6 +73,7 @@ const TABS = [
   { id: "entroncamentoMes", label: "Entroncamento · Mês" },
   { id: "metaMes", label: "Meta Mês" },
   { id: "lancamento", label: "Lançamento" },
+  { id: "analises", label: "Análises" },
   { id: "consulta", label: "Consulta" },
   { id: "comparativo", label: "Comparativo" },
 ];
@@ -116,6 +117,7 @@ const CSV_CAMPOS = [
   { key: "capex", label: "Projeto CAPEX" },
   { key: "compConstr", label: "Complemento Construcao" },
   { key: "obs", label: "Obs" },
+  { key: "gabData", label: "Gabinete GAP (data)" },
   { key: "lat", label: "Latitude" },
   { key: "lon", label: "Longitude" },
 ];
@@ -179,7 +181,7 @@ function countBy(rows, keyFn) {
 const COL = {
   cid: 0, anel: 1, site: 2, ident: 3, mod: 6, ano: 7, cp: 8, cr: 9, sc: 10,
   compConstr: 11, ep: 13, er: 14, se: 15, ofE: 18, epo: 22, capex: 23, obs: 24, gab: 30, sdca: 36,
-  qrm: 38, lanc: 40, meta: 41, etapa: 43, lat: 46, lon: 47,
+  qrm: 38, lanc: 40, meta: 41, etapa: 43, lat: 46, lon: 47, gabGap: 27,
 };
 
 function cleanCoord(v, tipo) {
@@ -223,6 +225,7 @@ function parseWorkbookToRows(workbook) {
       sdca: cleanTxt(l[COL.sdca], "Não informado"),
       capex: cleanTxt(l[COL.capex], "Não informado"),
       obs: cleanTxt(l[COL.obs], ""),
+      gabData: excelDateToStr(l[COL.gabGap]),
       lat: cleanCoord(l[COL.lat], "lat"),
       lon: cleanCoord(l[COL.lon], "lon"),
     });
@@ -607,7 +610,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
   const ctx = { dadosF, dadosTodos: dados, hojeStr, anosFiltro, epos, sessao, dadosAnteriorF, atualizadoEmAtual, atualizadoEmAnterior };
 
   return (
-    <div className="app-bg" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: TEXT, minHeight: "100%", position: "relative" }}>
+    <div className="app-bg" style={{ fontFamily: "'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif", color: TEXT, minHeight: "100vh", position: "relative" }}>
       <DefsGradientes />
       <div className="malha-fixa"><MalhaRede suave /></div>
       <style>{`
@@ -713,6 +716,7 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         {aba === "entroncamentoMes" && <AbaMes {...ctx} tipo="entroncamento" />}
         {aba === "metaMes" && <AbaMetaMes {...ctx} />}
         {aba === "lancamento" && <AbaLancamento {...ctx} />}
+        {aba === "analises" && <AbaAnalises {...ctx} />}
         {aba === "consulta" && <AbaConsulta {...ctx} />}
         {aba === "comparativo" && <AbaComparativo {...ctx} />}
         </div>
@@ -974,9 +978,9 @@ function RankingBar({ data, coresMap, height = 220, width = 130 }) {
   );
 }
 
-function Tabela({ colunas, linhas, largo }) {
+function Tabela({ colunas, linhas, largo, altura }) {
   return (
-    <div style={{ maxHeight: 320, overflow: "auto", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
+    <div style={{ maxHeight: altura || 320, overflow: "auto", border: `1px solid ${BORDER}`, borderRadius: 8 }}>
       <table className="tbl" style={largo ? { width: "max-content", minWidth: "100%" } : undefined}>
         <thead><tr>{colunas.map((c) => <th key={c.key} style={largo ? { whiteSpace: "nowrap" } : undefined}>{c.label}</th>)}</tr></thead>
         <tbody>
@@ -1747,6 +1751,112 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
 }
 
 /* ---------------- Aba: Pareto ---------------- */
+
+/* ---------------- Aba: Análises ---------------- */
+
+function metaChave(ano, mesIdx) { return String(ano % 100).padStart(2, "0") + "M" + String(mesIdx + 1).padStart(2, "0"); }
+
+function AbaAnalises({ dadosF, hojeStr }) {
+  const [sel, setSel] = useState("adiantar");
+  const ano = parseInt(hojeStr.slice(0, 4), 10);
+  const mes = parseInt(hojeStr.slice(5, 7), 10) - 1;
+  const proxAno = mes === 11 ? ano + 1 : ano;
+  const proxMes = (mes + 1) % 12;
+  const metasJanela = [metaChave(ano, mes), metaChave(proxAno, proxMes)];
+  const mesAtual = hojeStr.slice(0, 7);
+  const inicioMes = mesAtual + "-01";
+  const rotuloMes = `${MESES[mes]}/${ano}`;
+
+  const A = useMemo(() => {
+    const gabN = (r) => String(r.gab || "").toUpperCase().trim();
+    const semInfo = (r) => ["SEM INFO", "NÃO INFORMADO", ""].includes(gabN(r));
+    const construidoPend = dadosF.filter((r) => r.sc === "CONSTRUÍDO" && r.se === "PENDENTE");
+    const adiantar = construidoPend.filter((r) => gabN(r) === "GABINETE OK" || semInfo(r));
+    const naoOk = construidoPend.filter((r) => gabN(r) !== "GABINETE OK" && r.gabData);
+    const oport = naoOk.filter((r) => r.gabData.slice(0, 7) === mesAtual);
+    const vencidas = naoOk.filter((r) => r.gabData < inicioMes);
+    const meta = dadosF.filter((r) =>
+      r.sc !== "CANCELADO" && r.se !== "CANCELADO" &&
+      (r.se === "PENDENTE" || r.sc !== "CONSTRUÍDO") &&
+      String(r.etapa || "").toUpperCase().trim() === "OT" &&
+      metasJanela.includes(String(r.meta || "").toUpperCase().trim()));
+    const dias = (d) => Math.floor((new Date(hojeStr) - new Date(d)) / 86400000);
+    const porData = (campo) => (a, b) => (a[campo] || "9999").localeCompare(b[campo] || "9999") || a.site.localeCompare(b.site);
+    return {
+      adiantar: { orig: [...adiantar].sort(porData("ep")), semInfo },
+      oport: { orig: [...oport].sort(porData("gabData")), semInfo },
+      vencidas: { orig: [...vencidas].sort((a, b) => a.gabData.localeCompare(b.gabData)), dias },
+      meta: { orig: [...meta].sort((a, b) => String(a.meta).localeCompare(String(b.meta)) || a.site.localeCompare(b.site)) },
+    };
+  }, [dadosF, mesAtual, inicioMes, hojeStr]); // eslint-disable-line
+
+  const CFG = {
+    adiantar: {
+      titulo: "Adiantar entroncamento", cor: GREEN,
+      regra: "Construído · entroncamento pendente · gabinete OK ou SEM INFO. São os casos em que dá para tentar antecipar o entroncamento.",
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }, { key: "meta", label: "Meta" }],
+    },
+    oport: {
+      titulo: "Oportunidades do mês", cor: AMBER,
+      regra: `Construído · entroncamento pendente · gabinete ainda não OK · data de gabinete (col. AB) em ${rotuloMes}. Ao concretizar o gabinete, o site passa para "Adiantar entroncamento".`,
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }, { key: "nota", label: "Observação" }],
+    },
+    vencidas: {
+      titulo: "Gabinete com data vencida", cor: RED,
+      regra: `Construído · entroncamento pendente · gabinete ainda não OK · data de gabinete anterior a ${rotuloMes}. Datas para remanejar.`,
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "atraso", label: "Atraso (dias)" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }],
+    },
+    meta: {
+      titulo: "OT com meta próxima", cor: BLUE,
+      regra: `Etapa OT com meta em ${metasJanela.join(" ou ")} · entroncamento pendente ou construção diferente de construído (sem cancelados). Candidatos a remanejar data.`,
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "meta", label: "Meta" }, { key: "etapa", label: "Etapa" }, { key: "sc", label: "Status construção" }, { key: "se", label: "Status entroncamento" }, { key: "cpD", label: "Constr. Plan" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }],
+    },
+  };
+
+  function exibir(chave, r) {
+    return {
+      ...r,
+      gabD: formatDateBR(r.gabData),
+      epD: formatDateBR(r.ep),
+      cpD: formatDateBR(r.cp),
+      atraso: r.gabData ? A.vencidas.dias(r.gabData) : null,
+      nota: chave === "oport" && A.oport.semInfo(r) ? "Gabinete SEM INFO: também aparece em Adiantar entroncamento" : "",
+      ofE: r.ofE || null, meta: r.meta || null,
+    };
+  }
+  const atual = CFG[sel];
+  const linhas = useMemo(() => A[sel].orig.map((r) => exibir(sel, r)), [A, sel]); // eslint-disable-line
+
+  return (
+    <div>
+      <div style={{ fontSize: 12, color: TEXT_MUTED, marginBottom: 14 }}>
+        Hoje: <b style={{ color: TEXT }}>{formatDateBR(hojeStr)}</b> · mês vigente <b style={{ color: TEXT }}>{rotuloMes}</b> · janela de meta <b style={{ color: TEXT }}>{metasJanela.join(" e ")}</b> · as análises respeitam os filtros do topo
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12, marginBottom: 18 }}>
+        {Object.keys(CFG).map((k) => {
+          const c = CFG[k], ativo = sel === k;
+          return (
+            <button key={k} onClick={() => setSel(k)} className="kpi-glass" style={{ textAlign: "left", cursor: "pointer", position: "relative", overflow: "hidden", borderRadius: 14, padding: "16px 18px", color: TEXT, fontFamily: "inherit",
+              background: ativo ? `linear-gradient(155deg, ${c.cor}26, rgba(20,24,22,0.8))` : "linear-gradient(155deg, rgba(36,41,38,0.6), rgba(20,24,22,0.68))",
+              border: `1px solid ${ativo ? c.cor : "rgba(255,255,255,0.08)"}`, boxShadow: ativo ? `0 0 0 1px ${c.cor}55, 0 14px 30px ${c.cor}22` : "0 10px 24px rgba(0,0,0,0.3)" }}>
+              <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: `linear-gradient(90deg, ${c.cor}, ${c.cor}00)` }} />
+              <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 6, fontWeight: 600 }}>{c.titulo}</div>
+              <div className="num" style={{ fontSize: 30, fontWeight: 700, color: c.cor, textShadow: `0 0 18px ${c.cor}55` }}>{A[k].orig.length}</div>
+              <div style={{ fontSize: 11, color: TEXT_FAINT, marginTop: 2 }}>sites</div>
+            </button>
+          );
+        })}
+      </div>
+      <PainelGrafico titulo={atual.titulo} subtitulo={atual.regra}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10, gap: 10, flexWrap: "wrap" }}>
+          <div style={{ fontSize: 12.5, color: TEXT_MUTED }}><b style={{ color: TEXT }}>{linhas.length}</b> site(s) · role a tabela para ver todos</div>
+          <button className="btn-hover" style={botaoSecundario} onClick={() => exportarCSV(A[sel].orig)} disabled={linhas.length === 0}>Exportar CSV ({linhas.length})</button>
+        </div>
+        <Tabela colunas={atual.colunas} linhas={linhas} largo altura={560} />
+      </PainelGrafico>
+    </div>
+  );
+}
 
 function AbaPareto({ dadosF }) {
   const dados = useMemo(() => {
