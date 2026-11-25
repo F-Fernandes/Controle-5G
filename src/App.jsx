@@ -418,7 +418,7 @@ function MalhaRede({ suave }) {
   return <canvas ref={ref} style={{ position: "absolute", inset: 0, width: "100%", height: "100%", pointerEvents: "none" }} />;
 }
 
-function AnelProgresso({ titulo, valor, total, cor, sub }) {
+function AnelProgresso({ titulo, valor, total, cor, sub, onClick, ativo, dim }) {
   const uid = React.useId().replace(/:/g, "");
   const p = total > 0 ? valor / total : 0;
   const anim = useCountUp(Math.round(p * 1000), 1100);
@@ -438,7 +438,7 @@ function AnelProgresso({ titulo, valor, total, cor, sub }) {
     </svg>
   );
   return (
-    <div style={{ textAlign: "center" }}>
+    <div onClick={onClick} style={{ textAlign: "center", cursor: onClick ? "pointer" : "default", opacity: dim ? 0.35 : 1, transition: "opacity 0.25s, transform 0.2s, filter 0.25s", transform: ativo ? "scale(1.05)" : "none", filter: ativo ? `drop-shadow(0 0 14px ${cor}99)` : "none" }}>
       <div style={{ position: "relative", width: 168, height: 168, margin: "-26px auto -16px" }}>
         <div style={{ position: "absolute", inset: 0, transform: "translateY(10px) perspective(520px) rotateX(48deg)", opacity: 0.95 }}>
           {camada(ajustarCor(cor, -0.55), "#0B0D0C")}
@@ -628,10 +628,13 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
         .recharts-tooltip-cursor { fill: rgba(255,255,255,0.05) !important; }
         .tab-pill { transition: all 0.2s ease; }
         .tab-pill:hover { transform: translateY(-1px); color: ${TEXT} !important; }
+        .btn-rota { animation: rotaPulse 2.2s ease-in-out infinite; transition: transform 0.15s ease; }
+        .btn-rota:hover { transform: translateY(-2px) scale(1.05); }
+        @keyframes rotaPulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(255,90,58,0.55), 0 8px 22px rgba(255,69,58,0.35); } 50% { box-shadow: 0 0 0 11px rgba(255,90,58,0), 0 8px 22px rgba(255,69,58,0.35); } }
         ::-webkit-scrollbar { width: 9px; height: 9px; }
         ::-webkit-scrollbar-thumb { background: #2E3532; border-radius: 6px; }
         ::-webkit-scrollbar-track { background: transparent; }
-        @media (prefers-reduced-motion: reduce) { .tab-enter, .fade-in { animation: none !important; } .kpi-glass { transition: none; } }
+        @media (prefers-reduced-motion: reduce) { .tab-enter, .fade-in { animation: none !important; } .kpi-glass { transition: none; } .btn-rota { animation: none; } }
         .num { font-variant-numeric: tabular-nums; font-family: 'IBM Plex Mono', ui-monospace, monospace; }
         select, input, button { font-family: inherit; }
         @keyframes shimmer { 0% { background-position: -200px 0; } 100% { background-position: 400px 0; } }
@@ -654,7 +657,10 @@ function Dashboard({ sessao, onLogout, usuarios, onUsuariosChange }) {
           <div style={{ fontSize: 17, fontWeight: 700 }}>Construção &amp; Entroncamento — Projetos 5G</div>
         </div>
         <div style={{ fontSize: 12, color: TEXT_MUTED, textAlign: "right" }}>{sessao.login} · {sessao.papel === "master" ? "acesso master" : "acesso usuário"}</div>
-        <button onClick={() => window.open("https://fernandes.api.br", "_blank", "noopener,noreferrer")} className="btn-hover" style={{ background: SURFACE_2, border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 7, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>Cálculos de rota</button>
+        <button onClick={() => window.open("https://fernandes.api.br", "_blank", "noopener,noreferrer")} className="btn-hover btn-rota" style={{ display: "inline-flex", alignItems: "center", gap: 9, background: `linear-gradient(135deg, ${RED} 0%, #FF8A3D 100%)`, border: "1px solid rgba(255,255,255,0.4)", color: "#fff", borderRadius: 11, padding: "11px 20px", fontSize: 14, fontWeight: 700, cursor: "pointer", textShadow: "0 1px 2px rgba(0,0,0,0.4)" }}>
+          <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><circle cx="6" cy="19" r="3" /><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15" /><circle cx="18" cy="5" r="3" /></svg>
+          Cálculos de rota
+        </button>
         <button onClick={onLogout} className="btn-hover" style={{ background: "transparent", border: `1px solid ${BORDER}`, color: TEXT, borderRadius: 7, padding: "7px 14px", fontSize: 12, cursor: "pointer" }}>Sair</button>
       </div>
 
@@ -959,7 +965,27 @@ function PainelGrafico({ titulo, subtitulo, children }) {
 
 const tooltipStyle = { background: "rgba(24,28,26,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 13, color: TEXT, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" };
 
-function RankingBar({ data, coresMap, height = 220, width = 130 }) {
+function useSelecao() {
+  const [sel, setSel] = useState([]);
+  const alternar = (k) => setSel((s) => (s.includes(k) ? s.filter((x) => x !== k) : [...s, k]));
+  return [sel, alternar, () => setSel([])];
+}
+
+function ChipsSelecao({ chips, onLimpar }) {
+  if (!chips.length) return null;
+  return (
+    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center", marginBottom: 10 }}>
+      <span style={{ fontSize: 12, color: TEXT_MUTED }}>Seleção:</span>
+      {chips.map((c) => (
+        <button key={c.label} className="btn-hover" onClick={c.rm} title="Remover da seleção" style={{ background: `${RED}22`, border: `1px solid ${RED}88`, color: "#FFB0AA", borderRadius: 999, padding: "4px 10px", fontSize: 12, cursor: "pointer" }}>{c.label} ✕</button>
+      ))}
+      <button className="btn-hover" style={{ ...botaoSecundario, padding: "5px 10px" }} onClick={onLimpar}>Limpar seleção</button>
+    </div>
+  );
+}
+
+function RankingBar({ data, coresMap, height = 220, width = 130, sel, onSel }) {
+  const ativa = !!(sel && sel.length);
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={data} layout="vertical" margin={{ left: 20, right: 24 }}>
@@ -967,9 +993,9 @@ function RankingBar({ data, coresMap, height = 220, width = 130 }) {
         <XAxis type="number" tick={{ fontSize: 12, fill: TEXT_MUTED }} axisLine={false} tickLine={false} allowDecimals={false} />
         <YAxis type="category" dataKey="label" tick={{ fontSize: 12, fill: TEXT_MUTED }} axisLine={false} tickLine={false} width={width} />
         <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: TEXT }} />
-        <Bar dataKey="qtd" radius={[0, 3, 3, 0]} maxBarSize={18}>
+        <Bar dataKey="qtd" radius={[0, 3, 3, 0]} maxBarSize={18} cursor={onSel ? "pointer" : undefined} onClick={onSel ? (d) => onSel(d.label !== undefined ? d.label : d.payload && d.payload.label) : undefined}>
           <LabelList dataKey="qtd" position="right" fill={TEXT} fontSize={12} />
-          {data.map((d, i) => <Cell key={i} fill={volH((coresMap && coresMap[d.label]) || TEXT_FAINT)} />)}
+          {data.map((d, i) => { const on = ativa && sel.includes(d.label); return <Cell key={i} fill={volH((coresMap && coresMap[d.label]) || TEXT_FAINT)} fillOpacity={ativa && !on ? 0.25 : 1} stroke={on ? "#fff" : "none"} strokeWidth={2} />; })}
         </Bar>
       </BarChart>
     </ResponsiveContainer>
@@ -1005,7 +1031,22 @@ function AbaConsolidado({ dadosF }) {
 
   const epoRanking = useMemoLike(dadosF, (r) => r.epo);
   const statusRanking = useMemoLike(dadosF, (r) => r.sc || "Sem status");
-  const detalheSites = dadosF.slice(0, 100);
+  const [selEpo, altEpo, limpEpo] = useSelecao();
+  const [selSc, altSc, limpSc] = useSelecao();
+  const [selAnel, altAnel, limpAnel] = useSelecao();
+  const ANEIS = { construido: (r) => r.sc === "CONSTRUÍDO", entroncado: (r) => r.se === "ENTRONCADO", pendprojeto: (r) => r.sc === "PENDENTE PROJETO" };
+  const ROT_ANEL = { construido: "Construído", entroncado: "Entroncado", pendprojeto: "Pend. Projeto" };
+  const temSel = selEpo.length + selSc.length + selAnel.length > 0;
+  const baseDet = temSel
+    ? dadosF.filter((r) => (!selEpo.length || selEpo.includes(r.epo)) && (!selSc.length || selSc.includes(r.sc || "Sem status")) && (!selAnel.length || selAnel.some((k) => ANEIS[k](r))))
+    : dadosF;
+  const detalheSites = baseDet.slice(0, 100);
+  const chips = [
+    ...selEpo.map((e) => ({ label: `EPO: ${e}`, rm: () => altEpo(e) })),
+    ...selSc.map((e) => ({ label: `Status: ${e}`, rm: () => altSc(e) })),
+    ...selAnel.map((k) => ({ label: ROT_ANEL[k], rm: () => altAnel(k) })),
+  ];
+  const limparTudo = () => { limpEpo(); limpSc(); limpAnel(); };
 
   return (
     <div>
@@ -1018,18 +1059,19 @@ function AbaConsolidado({ dadosF }) {
         <KpiCard label="Pend. Licenciamento" value={pendLicenciamento} cor={AMBER} />
         <KpiCard label="Pend. Projeto" value={pendProjeto} sub={pct(pendProjeto, total) + " do total"} cor={RED} />
       </div>
-      <PainelGrafico titulo="Avanço do projeto" subtitulo="Percentual sobre o total de sites no filtro atual">
+      <PainelGrafico titulo="Avanço do projeto" subtitulo="Percentual sobre o total de sites no filtro atual · clique em um anel ou coluna para filtrar o detalhe">
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 10, padding: "6px 0 2px" }}>
-          <AnelProgresso titulo="Construído" valor={construido} total={total} cor={GREEN} sub={`${construido} de ${total} sites`} />
-          <AnelProgresso titulo="Entroncado" valor={entroncado} total={total} cor={GREEN} sub={`${entroncado} de ${total} sites`} />
-          <AnelProgresso titulo="Pend. Projeto" valor={pendProjeto} total={total} cor={RED} sub={`${pendProjeto} de ${total} sites`} />
+          <AnelProgresso ativo={selAnel.includes("construido")} dim={selAnel.length > 0 && !selAnel.includes("construido")} onClick={() => altAnel("construido")} titulo="Construído" valor={construido} total={total} cor={GREEN} sub={`${construido} de ${total} sites`} />
+          <AnelProgresso ativo={selAnel.includes("entroncado")} dim={selAnel.length > 0 && !selAnel.includes("entroncado")} onClick={() => altAnel("entroncado")} titulo="Entroncado" valor={entroncado} total={total} cor={GREEN} sub={`${entroncado} de ${total} sites`} />
+          <AnelProgresso ativo={selAnel.includes("pendprojeto")} dim={selAnel.length > 0 && !selAnel.includes("pendprojeto")} onClick={() => altAnel("pendprojeto")} titulo="Pend. Projeto" valor={pendProjeto} total={total} cor={RED} sub={`${pendProjeto} de ${total} sites`} />
         </div>
       </PainelGrafico>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <PainelGrafico titulo="Sites por EPO" subtitulo="Total no filtro atual"><RankingBar data={epoRanking} coresMap={EPO_CORES} /></PainelGrafico>
-        <PainelGrafico titulo="Status de Construção" subtitulo="Distribuição geral"><RankingBar data={statusRanking} coresMap={STATUS_CONST_CORES} /></PainelGrafico>
+        <PainelGrafico titulo="Sites por EPO" subtitulo="Total no filtro atual"><RankingBar data={epoRanking} coresMap={EPO_CORES} sel={selEpo} onSel={altEpo} /></PainelGrafico>
+        <PainelGrafico titulo="Status de Construção" subtitulo="Distribuição geral"><RankingBar data={statusRanking} coresMap={STATUS_CONST_CORES} sel={selSc} onSel={altSc} /></PainelGrafico>
       </div>
-      <PainelGrafico titulo="Detalhe de sites" subtitulo={`De acordo com os filtros aplicados acima · mostrando até 100 de ${dadosF.length}`}>
+      <PainelGrafico titulo="Detalhe de sites" subtitulo={temSel ? `Seleção ativa · ${baseDet.length} site(s)${baseDet.length > 100 ? " (mostrando 100)" : ""}` : `De acordo com os filtros aplicados acima · mostrando até 100 de ${dadosF.length}`}>
+        <ChipsSelecao chips={chips} onLimpar={limparTudo} />
         <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "etapa", label: "Etapa" }, { key: "sc", label: "Status" }]} linhas={detalheSites} />
       </PainelGrafico>
     </div>
@@ -1048,8 +1090,11 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
   const realStatusOk = tipo === "construcao" ? "CONSTRUÍDO" : "ENTRONCADO";
   const coresStatus = tipo === "construcao" ? STATUS_CONST_CORES : STATUS_ENTR_CORES;
   const tituloReal = tipo === "construcao" ? "Construído" : "Entroncado";
-  const [selCol, setSelCol] = useState(null);
-  function alternarCol(i, tipoCol) { setSelCol((x) => (x && x.mes === i && x.tipo === tipoCol ? null : { mes: i, tipo: tipoCol })); }
+  const [selCol, altCol, limpCol] = useSelecao();
+  const [selStatus, altStatus, limpStatus] = useSelecao();
+  const [selEpoA, altEpoA, limpEpoA] = useSelecao();
+  const alternarCol = (i, t) => altCol(`${i}|${t}`);
+  const limparTudo = () => { limpCol(); limpStatus(); limpEpoA(); };
 
   const serie = useMemo(() => {
     const meses = MESES.map((label) => ({ mes: label, Plan: 0, Real: 0 }));
@@ -1068,14 +1113,21 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
   const statusRanking = useMemoLike(dadosF, (r) => r[realStatusKey] || "Sem status");
   const epoRanking = useMemoLike(dadosF, (r) => r.epo);
   const totalComPlan = dadosF.filter((r) => r[planKey]).length;
-  const baseTabela = selCol
-    ? dadosF.filter((r) => {
-        const pi = monthIndex(r[planKey]);
-        return pi === selCol.mes && (anosFiltro === null || anosFiltro.includes(yearOf(r[planKey]))) && (selCol.tipo === "Plan" || r[realStatusKey] === realStatusOk);
-      })
-    : dadosF.filter((r) => r[planKey]);
+  const temSel = selCol.length + selStatus.length + selEpoA.length > 0;
+  const passaCol = (r) => {
+    if (!selCol.length) return true;
+    const pi = monthIndex(r[planKey]);
+    if (pi === null || !(anosFiltro === null || anosFiltro.includes(yearOf(r[planKey])))) return false;
+    return selCol.some((k) => { const [i, t] = k.split("|"); return pi === Number(i) && (t === "Plan" || r[realStatusKey] === realStatusOk); });
+  };
+  const baseTabela = dadosF.filter((r) => r[planKey] && passaCol(r) && (!selStatus.length || selStatus.includes(r[realStatusKey] || "Sem status")) && (!selEpoA.length || selEpoA.includes(r.epo)));
   const tabela = baseTabela.slice(0, 100);
-  const destaque = (i, t) => (selCol ? (selCol.mes === i && selCol.tipo === t ? 1 : 0.22) : 1);
+  const destaque = (i, t) => (selCol.length ? (selCol.includes(`${i}|${t}`) ? 1 : 0.22) : 1);
+  const chips = [
+    ...selCol.map((k) => { const [i, t] = k.split("|"); return { label: `${t} · ${MESES[Number(i)]}`, rm: () => altCol(k) }; }),
+    ...selStatus.map((e) => ({ label: `Status: ${e}`, rm: () => altStatus(e) })),
+    ...selEpoA.map((e) => ({ label: `EPO: ${e}`, rm: () => altEpoA(e) })),
+  ];
 
   return (
     <div>
@@ -1093,25 +1145,21 @@ function AbaAno({ dadosF, anosFiltro, epos, tipo }) {
             <Legend wrapperStyle={{ fontSize: 12, color: TEXT_MUTED }} />
             <Bar dataKey="Plan" fill={volV(PLAN_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26} cursor="pointer" onClick={(d, i) => alternarCol(i, "Plan")}>
               <LabelList dataKey="Plan" position="top" fill={TEXT_MUTED} fontSize={11} />
-              {serie.map((m, i) => <Cell key={i} fill={volV(PLAN_COLOR)} fillOpacity={destaque(i, "Plan")} stroke={selCol && selCol.mes === i && selCol.tipo === "Plan" ? "#fff" : "none"} strokeWidth={2} />)}
+              {serie.map((m, i) => <Cell key={i} fill={volV(PLAN_COLOR)} fillOpacity={destaque(i, "Plan")} stroke={selCol.includes(`${i}|Plan`) ? "#fff" : "none"} strokeWidth={2} />)}
             </Bar>
             <Bar dataKey="Real" fill={volV(REAL_COLOR)} radius={[3, 3, 0, 0]} maxBarSize={26} cursor="pointer" onClick={(d, i) => alternarCol(i, "Real")}>
               <LabelList dataKey="Real" position="top" fill={TEXT_MUTED} fontSize={11} />
-              {serie.map((m, i) => <Cell key={i} fill={volV(REAL_COLOR)} fillOpacity={destaque(i, "Real")} stroke={selCol && selCol.mes === i && selCol.tipo === "Real" ? "#fff" : "none"} strokeWidth={2} />)}
+              {serie.map((m, i) => <Cell key={i} fill={volV(REAL_COLOR)} fillOpacity={destaque(i, "Real")} stroke={selCol.includes(`${i}|Real`) ? "#fff" : "none"} strokeWidth={2} />)}
             </Bar>
           </ComposedChart>
         </ResponsiveContainer>
       </PainelGrafico>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <PainelGrafico titulo="Status" subtitulo="Distribuição no filtro atual"><RankingBar data={statusRanking} coresMap={coresStatus} /></PainelGrafico>
-        <PainelGrafico titulo="Ranking por EPO" subtitulo="Total no filtro atual"><RankingBar data={epoRanking} coresMap={EPO_CORES} /></PainelGrafico>
+        <PainelGrafico titulo="Status" subtitulo="Distribuição no filtro atual · clique para filtrar o detalhe"><RankingBar data={statusRanking} coresMap={coresStatus} sel={selStatus} onSel={altStatus} /></PainelGrafico>
+        <PainelGrafico titulo="Ranking por EPO" subtitulo="Total no filtro atual · clique para filtrar o detalhe"><RankingBar data={epoRanking} coresMap={EPO_CORES} sel={selEpoA} onSel={altEpoA} /></PainelGrafico>
       </div>
-      <PainelGrafico titulo="Detalhe de sites" subtitulo={selCol ? `Coluna selecionada: ${selCol.tipo} · ${MESES[selCol.mes]} · ${baseTabela.length} site(s)${baseTabela.length > 100 ? " (mostrando 100)" : ""}` : `De acordo com os filtros aplicados acima · mostrando até 100 de ${totalComPlan}`}>
-        {selCol && (
-          <div style={{ marginBottom: 10 }}>
-            <button className="btn-hover" style={botaoSecundario} onClick={() => setSelCol(null)}>Limpar seleção da coluna</button>
-          </div>
-        )}
+      <PainelGrafico titulo="Detalhe de sites" subtitulo={temSel ? `Seleção ativa · ${baseTabela.length} site(s)${baseTabela.length > 100 ? " (mostrando 100)" : ""}` : `De acordo com os filtros aplicados acima · mostrando até 100 de ${totalComPlan}`}>
+        <ChipsSelecao chips={chips} onLimpar={limparTudo} />
         <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "etapa", label: "Etapa" }, { key: realStatusKey, label: "Status" }]} linhas={tabela} />
       </PainelGrafico>
     </div>
@@ -1139,6 +1187,9 @@ function AbaMes({ dadosF, dadosTodos, hojeStr, anosFiltro, tipo }) {
   const pendentes = doMes.length - concluidos;
 
   const statusRanking = useMemoLike(doMes, (r) => r[statusKey] || "Sem status");
+  const [selSt, altSt, limpSt] = useSelecao();
+  useEffect(() => { limpSt(); }, [mesSel, anoSel]); // eslint-disable-line
+  const baseDet = selSt.length ? doMes.filter((r) => selSt.includes(r[statusKey] || "Sem status")) : doMes;
   const coresStatus = tipo === "construcao" ? STATUS_CONST_CORES : STATUS_ENTR_CORES;
 
   return (
@@ -1156,9 +1207,10 @@ function AbaMes({ dadosF, dadosTodos, hojeStr, anosFiltro, tipo }) {
         <KpiCard label="Ainda pendentes" value={pendentes} cor={RED} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 18 }}>
-        <PainelGrafico titulo="Status no mês" subtitulo="Sites planejados para este mês"><RankingBar data={statusRanking} coresMap={coresStatus} /></PainelGrafico>
-        <PainelGrafico titulo="Detalhe" subtitulo="Sites do mês de referência">
-          <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "epo", label: "EPO" }, { key: statusKey, label: "Status" }, { key: "cid", label: "Cidade" }]} linhas={doMes.slice(0, 30)} />
+        <PainelGrafico titulo="Status no mês" subtitulo="Sites planejados para este mês · clique para filtrar o detalhe"><RankingBar data={statusRanking} coresMap={coresStatus} sel={selSt} onSel={altSt} /></PainelGrafico>
+        <PainelGrafico titulo="Detalhe" subtitulo={selSt.length ? `Seleção ativa · ${baseDet.length} site(s)` : "Sites do mês de referência"}>
+          <ChipsSelecao chips={selSt.map((e) => ({ label: `Status: ${e}`, rm: () => altSt(e) }))} onLimpar={limpSt} />
+          <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "epo", label: "EPO" }, { key: statusKey, label: "Status" }, { key: "cid", label: "Cidade" }]} linhas={baseDet.slice(0, 100)} />
         </PainelGrafico>
       </div>
       <MapaSites sites={doMes} dadosTodos={dadosTodos} modoInicial={tipo === "construcao" ? "sc" : "se"} rotulo={`${MESES[mesSel]}/${anoSel}`} />
@@ -1192,6 +1244,13 @@ function AbaLancamento({ dadosF, anosFiltro }) {
   }, [dadosF, eposPresentes, anosFiltro]);
 
   const totalGeral = serie.reduce((acc, m) => acc + eposPresentes.reduce((a, e) => a + (m[e] || 0), 0), 0);
+  const [selSeg, altSeg, limpSeg] = useSelecao();
+  const baseDet = dadosF.filter((r) => {
+    const mi = monthIndex(r.cp);
+    if (mi === null || !(r.lanc > 0)) return false;
+    if (anosFiltro !== null && !anosFiltro.includes(yearOf(r.cp))) return false;
+    return !selSeg.length || selSeg.some((k) => { const [i, e] = k.split("|"); return mi === Number(i) && r.epo === e; });
+  }).map((r) => ({ ...r, cpD: formatDateBR(r.cp) }));
 
   return (
     <div>
@@ -1199,7 +1258,7 @@ function AbaLancamento({ dadosF, anosFiltro }) {
         <KpiCard label="Total lançado no ano" value={totalGeral} />
         <KpiCard label="EPOs no filtro atual" value={eposPresentes.length} />
       </div>
-      <PainelGrafico titulo="Lançamento mensal" subtitulo={eposPresentes.length === 1 ? `Somente EPO ${eposPresentes[0]} (filtro ativo)` : "Soma de todas as EPOs, mês a mês (mês da Construção Plan)"}>
+      <PainelGrafico titulo="Lançamento mensal" subtitulo={eposPresentes.length === 1 ? `Somente EPO ${eposPresentes[0]} (filtro ativo)` : "Soma de todas as EPOs, mês a mês (mês da Construção Plan) · clique em uma coluna para filtrar o detalhe"}>
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={serie} margin={{ left: -10 }}>
             <CartesianGrid stroke={BORDER} vertical={false} />
@@ -1208,12 +1267,17 @@ function AbaLancamento({ dadosF, anosFiltro }) {
             <Tooltip contentStyle={tooltipStyle} labelStyle={{ color: TEXT }} />
             <Legend wrapperStyle={{ fontSize: 12, color: TEXT_MUTED }} />
             {eposPresentes.map((e) => (
-              <Bar key={e} dataKey={e} stackId="epo" fill={volV(EPO_CORES[e] || TEXT_FAINT)} maxBarSize={26}>
+              <Bar key={e} dataKey={e} stackId="epo" fill={volV(EPO_CORES[e] || TEXT_FAINT)} maxBarSize={26} cursor="pointer" onClick={(d, i) => altSeg(`${i}|${e}`)}>
                 <LabelList dataKey={e} position="center" fill="#0E1110" fontSize={10.5} formatter={(v) => (v ? v : "")} />
+                {serie.map((m, i) => { const on = selSeg.includes(`${i}|${e}`); return <Cell key={i} fill={volV(EPO_CORES[e] || TEXT_FAINT)} fillOpacity={selSeg.length && !on ? 0.25 : 1} stroke={on ? "#fff" : "none"} strokeWidth={2} />; })}
               </Bar>
             ))}
           </BarChart>
         </ResponsiveContainer>
+      </PainelGrafico>
+      <PainelGrafico titulo="Detalhe de sites" subtitulo={selSeg.length ? `Seleção ativa · ${baseDet.length} site(s)` : `Sites com lançamento no filtro atual · ${baseDet.length}`}>
+        <ChipsSelecao chips={selSeg.map((k) => { const [i, e] = k.split("|"); return { label: `${MESES[Number(i)]} · ${e}`, rm: () => altSeg(k) }; })} onLimpar={limpSeg} />
+        <Tabela colunas={[{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "cpD", label: "Construção Plan" }, { key: "lanc", label: "Lançamento" }]} linhas={baseDet.slice(0, 100)} />
       </PainelGrafico>
     </div>
   );
@@ -1292,6 +1356,7 @@ const suave = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2)
 function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
   const [modo, setModo] = useState(modoInicial || "sc");
   const base = "satelite";
+  const [ligarAnel, setLigarAnel] = useState(true);
   const [mostrarSusp, setMostrarSusp] = useState(false);
   const [vista, setVista] = useState({ lat: -23.55, lon: -46.63, z: 8 });
   const [tam, setTam] = useState({ w: 0, h: 580 });
@@ -1357,6 +1422,38 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
     pontos.forEach((p) => { const v = cfg.get(p.r); c[v] = (c[v] || 0) + 1; });
     return Object.entries(c).sort((a, b) => b[1] - a[1]).slice(0, 8);
   }, [pontos, cfg]);
+
+  const arestas = useMemo(() => {
+    const grupos = new Map();
+    pontos.forEach((p) => {
+      const a = p.r.anel;
+      if (!a || a === "Não informado") return;
+      if (!grupos.has(a)) grupos.set(a, []);
+      grupos.get(a).push(p);
+    });
+    const out = [];
+    grupos.forEach((lista, anel) => {
+      const n = lista.length;
+      if (n < 2) return;
+      let h = 0;
+      for (const ch of anel) h = (h * 31 + ch.charCodeAt(0)) % 360;
+      const cor = `hsl(${h}, 90%, 62%)`;
+      const usado = new Array(n).fill(false), dist = new Array(n).fill(Infinity), pai = new Array(n).fill(-1);
+      dist[0] = 0;
+      for (let it = 0; it < n; it++) {
+        let u = -1;
+        for (let i = 0; i < n; i++) if (!usado[i] && (u === -1 || dist[i] < dist[u])) u = i;
+        usado[u] = true;
+        if (pai[u] >= 0) out.push({ a: lista[pai[u]], b: lista[u], cor, anel });
+        for (let v = 0; v < n; v++) {
+          if (usado[v]) continue;
+          const d = (lista[u].lat - lista[v].lat) ** 2 + (lista[u].lon - lista[v].lon) ** 2;
+          if (d < dist[v]) { dist[v] = d; pai[v] = u; }
+        }
+      }
+    });
+    return out;
+  }, [pontos]);
 
   /* ---- coordenadas: tela -> plano (inverte a inclinação 3D) ---- */
   function pontoPlano(cx, cy) {
@@ -1457,7 +1554,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
     const oy = mercY(vista.lat, vista.z) - plano.h / 2;
     const itens = [];
     const dentro = (x, y) => x > -40 && y > -40 && x < plano.w + 40 && y < plano.h + 40;
-    if (vista.z < 13) {
+    if (vista.z < 13 && pontos.length > 60) {
       const cel = 46, mapa = new Map();
       for (const p of pontos) {
         const x = mercX(p.lon, vista.z) - ox, y = mercY(p.lat, vista.z) - oy;
@@ -1481,6 +1578,19 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
     }
     itens.forEach((it) => { it.rad = it.n > 1 ? Math.min(34, 11 + Math.sqrt(it.n) * 2.6) : 5.5; });
     itensRef.current = itens;
+    if (ligarAnel && arestas.length) {
+      ctx.lineCap = "round"; ctx.setLineDash([7, 5]);
+      ctx.globalAlpha = vista.z < 13 && pontos.length > 60 ? 0.5 : 0.95;
+      for (const e of arestas) {
+        const x1 = mercX(e.a.lon, vista.z) - ox, y1 = mercY(e.a.lat, vista.z) - oy;
+        const x2 = mercX(e.b.lon, vista.z) - ox, y2 = mercY(e.b.lat, vista.z) - oy;
+        if ((x1 < -50 && x2 < -50) || (y1 < -50 && y2 < -50) || (x1 > plano.w + 50 && x2 > plano.w + 50) || (y1 > plano.h + 50 && y2 > plano.h + 50)) continue;
+        ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+        ctx.strokeStyle = "rgba(0,0,0,0.6)"; ctx.lineWidth = 4.5; ctx.stroke();
+        ctx.strokeStyle = e.cor; ctx.lineWidth = 2.2; ctx.stroke();
+      }
+      ctx.setLineDash([]); ctx.globalAlpha = 1;
+    }
     for (const it of itens) {
       if (it.n > 1) {
         const g = ctx.createRadialGradient(it.x - it.rad * 0.3, it.y - it.rad * 0.35, 1, it.x, it.y, it.rad);
@@ -1500,6 +1610,24 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         }
       }
     }
+    const mostrarNomes = vista.z >= 14 || pontos.length <= 60 || (vista.z >= 13 && pontos.length <= 200);
+    if (mostrarNomes) {
+      ctx.font = "600 11.5px Inter, sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.lineJoin = "round";
+      const ocupados = [];
+      const ordem = itens.filter((it) => it.n === 1).sort((a, b) => (b.r === sel) - (a.r === sel));
+      for (const it of ordem) {
+        const nome = it.r.site;
+        const w = ctx.measureText(nome).width;
+        let lx = it.x + it.rad + 5;
+        if (lx + w > plano.w - 4) lx = it.x - it.rad - 5 - w;
+        const ret = { x: lx - 2, y: it.y - 8, w: w + 4, h: 16 };
+        if (ret.x < 0 || ret.y < 0 || ret.x + ret.w > plano.w || ret.y + ret.h > plano.h) continue;
+        if (it.r !== sel && ocupados.some((o) => ret.x < o.x + o.w && ret.x + ret.w > o.x && ret.y < o.y + o.h && ret.y + ret.h > o.y)) continue;
+        ocupados.push(ret);
+        ctx.strokeStyle = "rgba(0,0,0,0.92)"; ctx.lineWidth = 3.5; ctx.strokeText(nome, lx, it.y);
+        ctx.fillStyle = it.r === sel ? "#FFE08A" : "#FFFFFF"; ctx.fillText(nome, lx, it.y);
+      }
+    }
     if (sel) {
       const it = itens.find((x) => x.n === 1 && x.r === sel);
       if (it) {
@@ -1510,7 +1638,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         ctx.lineWidth = 2.5; ctx.strokeStyle = "#fff"; ctx.stroke();
       }
     }
-  }, [vista, plano.w, plano.h, planoGrande, pontos, cfg, sel, tick]); // eslint-disable-line
+  }, [vista, plano.w, plano.h, planoGrande, pontos, cfg, sel, tick, ligarAnel, arestas]); // eslint-disable-line
 
   function acharItem(p) {
     let melhor = null, md = 1e9;
@@ -1609,6 +1737,9 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
           <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: TEXT_MUTED, cursor: "pointer", paddingBottom: 9 }}>
             <input type="checkbox" checked={mostrarSusp} onChange={(e) => setMostrarSusp(e.target.checked)} /> Incluir coordenadas suspeitas
           </label>
+          <label style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: TEXT_MUTED, cursor: "pointer", paddingBottom: 9 }}>
+            <input type="checkbox" checked={ligarAnel} onChange={(e) => setLigarAnel(e.target.checked)} /> Ligar sites do mesmo anel
+          </label>
           <div style={{ marginLeft: "auto", fontSize: 12, color: TEXT_MUTED, paddingBottom: 9, textAlign: "right" }}>
             <b style={{ color: TEXT }}>{pontos.length}</b> no mapa · {semCoord} sem coordenada{ocultos > 0 && <> · <span style={{ color: AMBER }}>{ocultos} suspeitos ocultos</span></>}
           </div>
@@ -1665,6 +1796,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
               </div>
             ))}
             {mostrarSusp && <div style={{ color: AMBER, marginTop: 4 }}>◯ anel vazado = coordenada suspeita</div>}
+            {ligarAnel && arestas.length > 0 && <div style={{ color: TEXT_FAINT, marginTop: 4 }}>┄ linhas ligam sites do mesmo Anel FO (ilustrativo, não é o traçado real da fibra)</div>}
           </div>
           <div style={{ position: "absolute", right: 8, bottom: 6, fontSize: 10, color: TEXT_FAINT }}>{BASES[base].attr}</div>
 
@@ -1674,6 +1806,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
                 <>
                   <div style={{ fontWeight: 700, color: TEXT }}>{hover.it.r.site}</div>
                   <div style={{ color: TEXT_MUTED }}>{hover.it.r.cid}</div>
+                  <div style={{ color: TEXT_MUTED }}>Anel: {hover.it.r.anel}</div>
                   <div style={{ color: TEXT_MUTED }}>Constr.: {hover.it.r.sc || "—"} · Entr.: {hover.it.r.se || "—"}</div>
                   {hover.it.susp && <div style={{ color: AMBER }}>Coordenada suspeita</div>}
                 </>
