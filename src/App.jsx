@@ -1285,7 +1285,7 @@ function AbaLancamento({ dadosF, anosFiltro }) {
 
 /* ---------------- Aba: Consulta ---------------- */
 
-function AbaConsulta({ dadosF }) {
+function AbaConsulta({ dadosF, dadosTodos }) {
   const [q, setQ] = useState("");
   const { encontrados, duplicados } = useMemo(() => {
     if (!q.trim()) return { encontrados: [], duplicados: 0 };
@@ -1301,6 +1301,15 @@ function AbaConsulta({ dadosF }) {
     }
     return { encontrados: unicos, duplicados: brutos.length - unicos.length };
   }, [dadosF, q]);
+  const { sitesMapa, destaques, aneis } = useMemo(() => {
+    const dest = new Set(encontrados.map((r) => r.site));
+    const an = new Set(encontrados.map((r) => r.anel).filter((a) => a && a !== "Não informado"));
+    const vistos = new Set(), lista = [];
+    const add = (r) => { if (vistos.has(r.site)) return; vistos.add(r.site); lista.push(r); };
+    encontrados.forEach(add);
+    (dadosTodos || []).forEach((r) => { if (an.has(r.anel)) add(r); });
+    return { sitesMapa: lista, destaques: dest, aneis: an };
+  }, [encontrados, dadosTodos]);
 
   return (
     <PainelGrafico titulo="Consulta de site" subtitulo="Digite o código do SITE para ver o registro completo">
@@ -1323,6 +1332,12 @@ function AbaConsulta({ dadosF }) {
           )}
         </div>
       ))}
+      {encontrados.length > 0 && (
+        <div style={{ marginTop: 18 }}>
+          <MapaSites key={encontrados.map((r) => r.site).join("|")} sites={sitesMapa} dadosTodos={dadosTodos} modoInicial="sc" rotulo="Consulta" destaques={destaques}
+            subtitulo={`Sites consultados (contorno dourado)${aneis.size ? ` e demais sites do mesmo anel: ${[...aneis].join(", ")}` : " · sem Anel FO informado, apenas o site consultado"} · ignora os filtros do topo · arraste para mover · roda do mouse para zoom`} />
+        </div>
+      )}
     </PainelGrafico>
   );
 }
@@ -1353,7 +1368,7 @@ const BASES = {
 };
 const suave = (k) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2);
 
-function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
+function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo, destaques, subtitulo }) {
   const [modo, setModo] = useState(modoInicial || "sc");
   const base = "satelite";
   const [ligarAnel, setLigarAnel] = useState(true);
@@ -1610,6 +1625,14 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         }
       }
     }
+    if (destaques && destaques.size) {
+      for (const it of itens) {
+        if (it.n !== 1 || !destaques.has(it.r.site)) continue;
+        ctx.beginPath(); ctx.arc(it.x, it.y, it.rad + 4.5, 0, Math.PI * 2);
+        ctx.strokeStyle = "rgba(0,0,0,0.7)"; ctx.lineWidth = 5; ctx.stroke();
+        ctx.strokeStyle = "#FFE08A"; ctx.lineWidth = 2.5; ctx.stroke();
+      }
+    }
     const mostrarNomes = vista.z >= 14 || pontos.length <= 60 || (vista.z >= 13 && pontos.length <= 200);
     if (mostrarNomes) {
       ctx.font = "600 11.5px Inter, sans-serif"; ctx.textBaseline = "middle"; ctx.textAlign = "left"; ctx.lineJoin = "round";
@@ -1625,7 +1648,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         if (it.r !== sel && ocupados.some((o) => ret.x < o.x + o.w && ret.x + ret.w > o.x && ret.y < o.y + o.h && ret.y + ret.h > o.y)) continue;
         ocupados.push(ret);
         ctx.strokeStyle = "rgba(0,0,0,0.92)"; ctx.lineWidth = 3.5; ctx.strokeText(nome, lx, it.y);
-        ctx.fillStyle = it.r === sel ? "#FFE08A" : "#FFFFFF"; ctx.fillText(nome, lx, it.y);
+        ctx.fillStyle = it.r === sel || (destaques && destaques.has(nome)) ? "#FFE08A" : "#FFFFFF"; ctx.fillText(nome, lx, it.y);
       }
     }
     if (sel) {
@@ -1638,7 +1661,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         ctx.lineWidth = 2.5; ctx.strokeStyle = "#fff"; ctx.stroke();
       }
     }
-  }, [vista, plano.w, plano.h, planoGrande, pontos, cfg, sel, tick, ligarAnel, arestas]); // eslint-disable-line
+  }, [vista, plano.w, plano.h, planoGrande, pontos, cfg, sel, tick, ligarAnel, arestas, destaques]); // eslint-disable-line
 
   function acharItem(p) {
     let melhor = null, md = 1e9;
@@ -1688,7 +1711,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
     const termo = busca.trim().toUpperCase();
     if (!termo) return;
     const r = dadosF.find((x) => x.site.toUpperCase() === termo) || dadosF.find((x) => x.site.toUpperCase().includes(termo));
-    if (!r) { setMsg("Site não encontrado entre os sites deste mês."); return; }
+    if (!r) { setMsg("Site não encontrado entre os sites do mapa."); return; }
     if (r.lat == null || r.lon == null) { setMsg(`${r.site} não tem coordenada na planilha.`); setSel(r); return; }
     if (latSusp.has(r.lat) && !mostrarSusp) { setMostrarSusp(true); setMsg(`${r.site} tem latitude suspeita — coordenadas suspeitas foram incluídas no mapa.`); }
     else setMsg("");
@@ -1719,10 +1742,10 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
 
   return (
     <div>
-      <PainelGrafico titulo={`Localização dos sites · ${rotulo}`} subtitulo="Somente os sites do mês e dos filtros selecionados · arraste para mover · roda do mouse para zoom · clique em um grupo para aproximar ou em um site para ver os detalhes">
+      <PainelGrafico titulo={`Localização dos sites · ${rotulo}`} subtitulo={subtitulo || "Somente os sites do mês e dos filtros selecionados · arraste para mover · roda do mouse para zoom · clique em um grupo para aproximar ou em um site para ver os detalhes"}>
         <div style={{ display: "flex", gap: 10, flexWrap: "wrap", alignItems: "flex-end", marginBottom: 12 }}>
           <div>
-            <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 4 }}>Localizar site do mês</div>
+            <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 4 }}>Localizar site no mapa</div>
             <div style={{ display: "flex", gap: 6 }}>
               <input value={busca} onChange={(e) => setBusca(e.target.value)} onKeyDown={(e) => e.key === "Enter" && buscar()} placeholder="Ex.: SMAIA03" style={{ ...inputStyle, width: 170 }} />
               <button onClick={buscar} className="btn-hover" style={botaoSecundario}>Localizar</button>
@@ -1747,7 +1770,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo }) {
         {msg && <div style={{ color: AMBER, fontSize: 12.5, marginBottom: 8 }}>{msg}</div>}
         {ocultos > 0 && !mostrarSusp && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", background: "rgba(255,180,84,0.08)", border: "1px solid rgba(255,180,84,0.35)", borderRadius: 10, padding: "8px 12px", fontSize: 12.5, color: AMBER, marginBottom: 10 }}>
-            <span>{ocultos} de {dadosF.length} sites deste mês têm latitude repetida em muitos outros sites (provável erro na planilha) e não foram plotados.</span>
+            <span>{ocultos} de {dadosF.length} sites do mapa têm latitude repetida em muitos outros sites (provável erro na planilha) e não foram plotados.</span>
             <button className="btn-hover" style={{ ...botaoSecundario, padding: "5px 10px" }} onClick={() => setMostrarSusp(true)}>Mostrar mesmo assim</button>
           </div>
         )}
