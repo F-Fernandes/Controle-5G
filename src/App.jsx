@@ -38,10 +38,10 @@ async function apiSet(nome, value) {
 }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const BG = "#0E1110";
-const SURFACE = "#171B19";
-const SURFACE_2 = "#1E2320";
-const BORDER = "#2B302D";
+const BG = "#141D33";
+const SURFACE = "#1B2745";
+const SURFACE_2 = "#24335A";
+const BORDER = "#34457A";
 const TEXT = "#ECEFEC";
 const TEXT_MUTED = "#8B958F";
 const TEXT_FAINT = "#5E6863";
@@ -941,7 +941,7 @@ function KpiCard({ label, value, sub, cor }) {
   function sair() { if (ref.current) ref.current.style.transform = ""; }
   const brilho = cor || RED;
   return (
-    <div ref={ref} onMouseMove={mover} onMouseLeave={sair} className="kpi-glass" style={{ position: "relative", overflow: "hidden", background: "linear-gradient(155deg, rgba(36,41,38,0.6), rgba(20,24,22,0.68))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 18px", boxShadow: `0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0 ${brilho}00` }}>
+    <div ref={ref} onMouseMove={mover} onMouseLeave={sair} className="kpi-glass" style={{ position: "relative", overflow: "hidden", background: "linear-gradient(155deg, rgba(36,51,90,0.6), rgba(27,39,69,0.68))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 18px", boxShadow: `0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0 ${brilho}00` }}>
       <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: cor ? `linear-gradient(90deg, ${cor}, ${cor}00)` : "transparent" }} />
       <div className="kpi-glare" />
       <div style={{ position: "relative", fontSize: 11.5, color: TEXT_MUTED, marginBottom: 6, fontWeight: 500 }}>{label}</div>
@@ -953,7 +953,7 @@ function KpiCard({ label, value, sub, cor }) {
 
 function PainelGrafico({ titulo, subtitulo, children }) {
   return (
-    <div className="card-hover painel-glass" style={{ background: "linear-gradient(160deg, rgba(30,35,32,0.62), rgba(19,23,21,0.7))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "18px 20px", marginBottom: 18, boxShadow: "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+    <div className="card-hover painel-glass" style={{ background: "linear-gradient(160deg, rgba(36,51,90,0.62), rgba(27,39,69,0.7))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "18px 20px", marginBottom: 18, boxShadow: "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
       <div style={{ marginBottom: 12, display: "flex", alignItems: "baseline", gap: 10 }}>
         <div style={{ width: 3, height: 15, background: `linear-gradient(180deg, ${RED}, ${GREEN})`, borderRadius: 2, flexShrink: 0 }} />
         <div><div style={{ fontSize: 14.5, fontWeight: 600, color: TEXT }}>{titulo}</div>{subtitulo && <div style={{ fontSize: 11.5, color: TEXT_FAINT }}>{subtitulo}</div>}</div>
@@ -963,7 +963,7 @@ function PainelGrafico({ titulo, subtitulo, children }) {
   );
 }
 
-const tooltipStyle = { background: "rgba(24,28,26,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 13, color: TEXT, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" };
+const tooltipStyle = { background: "rgba(27,39,69,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 13, color: TEXT, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" };
 
 function useSelecao() {
   const [sel, setSel] = useState([]);
@@ -1738,7 +1738,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo, destaques, 
 
   const k3d = angulo / TILT_A;
   const comCoord = dadosF.length - semCoord;
-  const btnMapa = { background: "rgba(24,28,26,0.88)", border: "1px solid rgba(255,255,255,0.14)", color: TEXT, borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, fontWeight: 700, backdropFilter: "blur(6px)" };
+  const btnMapa = { background: "rgba(27,39,69,0.88)", border: "1px solid rgba(255,255,255,0.14)", color: TEXT, borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, fontWeight: 700, backdropFilter: "blur(6px)" };
 
   return (
     <div>
@@ -1894,44 +1894,43 @@ function AbaAnalises({ dadosF, hojeStr }) {
     const adiantar = construidoPend.filter((r) => gabN(r) === "GABINETE OK" || semInfo(r));
     const naoOk = construidoPend.filter((r) => gabN(r) !== "GABINETE OK" && r.gabData);
     const oport = naoOk.filter((r) => r.gabData.slice(0, 7) === mesAtual);
-    const vencidas = naoOk.filter((r) => r.gabData < inicioMes);
     const meta = dadosF.filter((r) =>
       r.sc !== "CANCELADO" && r.se !== "CANCELADO" &&
       (r.se === "PENDENTE" || r.sc !== "CONSTRUÍDO") &&
       String(r.etapa || "").toUpperCase().trim() === "OT" &&
       metasJanela.includes(String(r.meta || "").toUpperCase().trim()));
+    const otPend = dadosF.filter((r) => String(r.etapa || "").toUpperCase().trim() === "OT" && r.sc !== "CONSTRUÍDO" && r.sc !== "CANCELADO" && r.se !== "CANCELADO");
     const naoConstruidos = dadosF.filter((r) => r.sc !== "CONSTRUÍDO" && r.sc !== "CANCELADO" && r.se !== "CANCELADO" && (gabN(r) === "GABINETE OK" || semInfo(r)));
-    const dias = (d) => Math.floor((new Date(hojeStr) - new Date(d)) / 86400000);
     const porData = (campo) => (a, b) => (a[campo] || "9999").localeCompare(b[campo] || "9999") || a.site.localeCompare(b.site);
     return {
       adiantar: { orig: [...adiantar].sort(porData("ep")), semInfo },
       oport: { orig: [...oport].sort(porData("gabData")), semInfo },
-      vencidas: { orig: [...vencidas].sort((a, b) => a.gabData.localeCompare(b.gabData)), dias },
       meta: { orig: [...meta].sort((a, b) => String(a.meta).localeCompare(String(b.meta)) || a.site.localeCompare(b.site)) },
+      otPend: { orig: [...otPend].sort((a, b) => String(a.meta || "9999").localeCompare(String(b.meta || "9999")) || (a.cp || "9999").localeCompare(b.cp || "9999") || a.site.localeCompare(b.site)) },
       naoConstruidos: { orig: [...naoConstruidos].sort((a, b) => String(a.sc).localeCompare(String(b.sc)) || (a.cp || "9999").localeCompare(b.cp || "9999") || a.site.localeCompare(b.site)) },
     };
   }, [dadosF, mesAtual, inicioMes, hojeStr]); // eslint-disable-line
 
   const CFG = {
     adiantar: {
-      titulo: "Adiantar entroncamento", cor: GREEN,
+      titulo: "Priorizar entroncamento", cor: GREEN,
       regra: "Construído · entroncamento pendente · gabinete OK ou SEM INFO. São os casos em que dá para tentar antecipar o entroncamento.",
       colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }, { key: "meta", label: "Meta" }],
     },
     oport: {
       titulo: "Oportunidades do mês", cor: AMBER,
-      regra: `Construído · entroncamento pendente · gabinete ainda não OK · data de gabinete (col. AB) em ${rotuloMes}. Ao concretizar o gabinete, o site passa para "Adiantar entroncamento".`,
+      regra: `Construído · entroncamento pendente · gabinete ainda não OK · data de gabinete (col. AB) em ${rotuloMes}. Ao concretizar o gabinete, o site passa para "Priorizar entroncamento".`,
       colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }, { key: "nota", label: "Observação" }],
-    },
-    vencidas: {
-      titulo: "Gabinete com data vencida", cor: RED,
-      regra: `Construído · entroncamento pendente · gabinete ainda não OK · data de gabinete anterior a ${rotuloMes}. Datas para remanejar.`,
-      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "gab", label: "Gabinete" }, { key: "gabD", label: "Data gabinete" }, { key: "atraso", label: "Atraso (dias)" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }],
     },
     meta: {
       titulo: "OT com meta próxima", cor: BLUE,
       regra: `Etapa OT com meta em ${metasJanela.join(" ou ")} · entroncamento pendente ou construção diferente de construído (sem cancelados). Candidatos a remanejar data.`,
       colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "meta", label: "Meta" }, { key: "etapa", label: "Etapa" }, { key: "sc", label: "Status construção" }, { key: "se", label: "Status entroncamento" }, { key: "cpD", label: "Constr. Plan" }, { key: "epD", label: "Entr. Plan" }, { key: "ofE", label: "Ofensor entroncamento" }],
+    },
+    otPend: {
+      titulo: "Fase de OT pendente construção", cor: "#4FD1C5",
+      regra: "Etapa OT (col. AR) · construção diferente de construído (sem cancelados). Sites já em fase de OT que ainda não foram construídos.",
+      colunas: [{ key: "site", label: "SITE" }, { key: "cid", label: "Cidade" }, { key: "epo", label: "EPO" }, { key: "sc", label: "Status construção" }, { key: "meta", label: "Meta" }, { key: "etapa", label: "Etapa" }, { key: "gab", label: "Gabinete" }, { key: "cpD", label: "Constr. Plan" }, { key: "epD", label: "Entr. Plan" }, { key: "compConstr", label: "Complemento construção" }],
     },
     naoConstruidos: {
       titulo: "Não construídos com gabinete liberado", cor: PURPLE,
@@ -1946,8 +1945,7 @@ function AbaAnalises({ dadosF, hojeStr }) {
       gabD: formatDateBR(r.gabData),
       epD: formatDateBR(r.ep),
       cpD: formatDateBR(r.cp),
-      atraso: r.gabData ? A.vencidas.dias(r.gabData) : null,
-      nota: chave === "oport" && A.oport.semInfo(r) ? "Gabinete SEM INFO: também aparece em Adiantar entroncamento" : "",
+      nota: chave === "oport" && A.oport.semInfo(r) ? "Gabinete SEM INFO: também aparece em Priorizar entroncamento" : "",
       ofE: r.ofE || null, meta: r.meta || null,
     };
   }
@@ -1964,7 +1962,7 @@ function AbaAnalises({ dadosF, hojeStr }) {
           const c = CFG[k], ativo = sel === k;
           return (
             <button key={k} onClick={() => setSel(k)} className="kpi-glass" style={{ textAlign: "left", cursor: "pointer", position: "relative", overflow: "hidden", borderRadius: 14, padding: "16px 18px", color: TEXT, fontFamily: "inherit",
-              background: ativo ? `linear-gradient(155deg, ${c.cor}26, rgba(20,24,22,0.8))` : "linear-gradient(155deg, rgba(36,41,38,0.6), rgba(20,24,22,0.68))",
+              background: ativo ? `linear-gradient(155deg, ${c.cor}26, rgba(27,39,69,0.8))` : "linear-gradient(155deg, rgba(36,51,90,0.6), rgba(27,39,69,0.68))",
               border: `1px solid ${ativo ? c.cor : "rgba(255,255,255,0.08)"}`, boxShadow: ativo ? `0 0 0 1px ${c.cor}55, 0 14px 30px ${c.cor}22` : "0 10px 24px rgba(0,0,0,0.3)" }}>
               <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: `linear-gradient(90deg, ${c.cor}, ${c.cor}00)` }} />
               <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 6, fontWeight: 600 }}>{c.titulo}</div>
