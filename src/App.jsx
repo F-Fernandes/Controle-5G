@@ -38,10 +38,10 @@ async function apiSet(nome, value) {
 }
 const MESES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-const BG = "#141D33";
-const SURFACE = "#1B2745";
-const SURFACE_2 = "#24335A";
-const BORDER = "#34457A";
+const BG = "#25282D";
+const SURFACE = "#2D3137";
+const SURFACE_2 = "#363B43";
+const BORDER = "#474D56";
 const TEXT = "#ECEFEC";
 const TEXT_MUTED = "#8B958F";
 const TEXT_FAINT = "#5E6863";
@@ -941,7 +941,7 @@ function KpiCard({ label, value, sub, cor }) {
   function sair() { if (ref.current) ref.current.style.transform = ""; }
   const brilho = cor || RED;
   return (
-    <div ref={ref} onMouseMove={mover} onMouseLeave={sair} className="kpi-glass" style={{ position: "relative", overflow: "hidden", background: "linear-gradient(155deg, rgba(36,51,90,0.6), rgba(27,39,69,0.68))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 18px", boxShadow: `0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0 ${brilho}00` }}>
+    <div ref={ref} onMouseMove={mover} onMouseLeave={sair} className="kpi-glass" style={{ position: "relative", overflow: "hidden", background: "linear-gradient(155deg, rgba(54,59,67,0.6), rgba(45,49,55,0.68))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 14, padding: "16px 18px", boxShadow: `0 14px 30px rgba(0,0,0,0.38), inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 0 ${brilho}00` }}>
       <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: cor ? `linear-gradient(90deg, ${cor}, ${cor}00)` : "transparent" }} />
       <div className="kpi-glare" />
       <div style={{ position: "relative", fontSize: 11.5, color: TEXT_MUTED, marginBottom: 6, fontWeight: 500 }}>{label}</div>
@@ -953,7 +953,7 @@ function KpiCard({ label, value, sub, cor }) {
 
 function PainelGrafico({ titulo, subtitulo, children }) {
   return (
-    <div className="card-hover painel-glass" style={{ background: "linear-gradient(160deg, rgba(36,51,90,0.62), rgba(27,39,69,0.7))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "18px 20px", marginBottom: 18, boxShadow: "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
+    <div className="card-hover painel-glass" style={{ background: "linear-gradient(160deg, rgba(54,59,67,0.62), rgba(45,49,55,0.7))", backdropFilter: "blur(5px)", WebkitBackdropFilter: "blur(5px)", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 14, padding: "18px 20px", marginBottom: 18, boxShadow: "0 18px 40px rgba(0,0,0,0.34), inset 0 1px 0 rgba(255,255,255,0.05)" }}>
       <div style={{ marginBottom: 12, display: "flex", alignItems: "baseline", gap: 10 }}>
         <div style={{ width: 3, height: 15, background: `linear-gradient(180deg, ${RED}, ${GREEN})`, borderRadius: 2, flexShrink: 0 }} />
         <div><div style={{ fontSize: 14.5, fontWeight: 600, color: TEXT }}>{titulo}</div>{subtitulo && <div style={{ fontSize: 11.5, color: TEXT_FAINT }}>{subtitulo}</div>}</div>
@@ -963,7 +963,7 @@ function PainelGrafico({ titulo, subtitulo, children }) {
   );
 }
 
-const tooltipStyle = { background: "rgba(27,39,69,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 13, color: TEXT, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" };
+const tooltipStyle = { background: "rgba(45,49,55,0.95)", border: "1px solid rgba(255,255,255,0.1)", borderRadius: 10, fontSize: 13, color: TEXT, boxShadow: "0 12px 30px rgba(0,0,0,0.5)" };
 
 function useSelecao() {
   const [sel, setSel] = useState([]);
@@ -1738,7 +1738,7 @@ function MapaSites({ sites: dadosF, dadosTodos, modoInicial, rotulo, destaques, 
 
   const k3d = angulo / TILT_A;
   const comCoord = dadosF.length - semCoord;
-  const btnMapa = { background: "rgba(27,39,69,0.88)", border: "1px solid rgba(255,255,255,0.14)", color: TEXT, borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, fontWeight: 700, backdropFilter: "blur(6px)" };
+  const btnMapa = { background: "rgba(45,49,55,0.88)", border: "1px solid rgba(255,255,255,0.14)", color: TEXT, borderRadius: 8, width: 34, height: 34, cursor: "pointer", fontSize: 16, fontWeight: 700, backdropFilter: "blur(6px)" };
 
   return (
     <div>
@@ -1962,7 +1962,7 @@ function AbaAnalises({ dadosF, hojeStr }) {
           const c = CFG[k], ativo = sel === k;
           return (
             <button key={k} onClick={() => setSel(k)} className="kpi-glass" style={{ textAlign: "left", cursor: "pointer", position: "relative", overflow: "hidden", borderRadius: 14, padding: "16px 18px", color: TEXT, fontFamily: "inherit",
-              background: ativo ? `linear-gradient(155deg, ${c.cor}26, rgba(27,39,69,0.8))` : "linear-gradient(155deg, rgba(36,51,90,0.6), rgba(27,39,69,0.68))",
+              background: ativo ? `linear-gradient(155deg, ${c.cor}26, rgba(45,49,55,0.8))` : "linear-gradient(155deg, rgba(54,59,67,0.6), rgba(45,49,55,0.68))",
               border: `1px solid ${ativo ? c.cor : "rgba(255,255,255,0.08)"}`, boxShadow: ativo ? `0 0 0 1px ${c.cor}55, 0 14px 30px ${c.cor}22` : "0 10px 24px rgba(0,0,0,0.3)" }}>
               <div style={{ position: "absolute", left: 0, right: 0, top: 0, height: 3, background: `linear-gradient(90deg, ${c.cor}, ${c.cor}00)` }} />
               <div style={{ fontSize: 11.5, color: TEXT_MUTED, marginBottom: 6, fontWeight: 600 }}>{c.titulo}</div>
